@@ -1,0 +1,15 @@
+#!/bin/sh
+# Retrieval-only via plan9port 9p (JSON hits, no LLM).
+# Usage: rag-retrieve 'retrieval query'
+# Env: RAG_9P_ADDR (default unix!/tmp/rag9p; quote in zsh)
+
+set -e
+addr=${RAG_9P_ADDR:-unix!/tmp/rag9p}
+query=$*
+if [ -z "$query" ]; then
+	echo 'usage: rag-retrieve query...' >&2
+	exit 1
+fi
+
+printf '%s' "$query" | 9p -a "$addr" write retrieve/ctl
+9p -a "$addr" read retrieve/data

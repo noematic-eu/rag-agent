@@ -1,0 +1,16 @@
+{"id":"pub-rag-pipeline","corpus":"eval-public","retrieval_q":"retrieval augmented generation pipeline stages","expected_doc_ids":["doc-0e20502ea4f960b03e1ed232e35e772be550735c"]}
+{"id":"pub-hybrid-definition","corpus":"eval-public","retrieval_q":"hybrid RAG keyword vector paraphrases","expected_doc_ids":["doc-0e20502ea4f960b03e1ed232e35e772be550735c"]}
+{"id":"pub-bm25-tfidf","corpus":"eval-public","retrieval_q":"BM25 probabilistic lexical retrieval","expected_doc_ids":["doc-2b5b8b5496ab4acb0c1b24acf771aa4b157b2cd8"]}
+{"id":"pub-rrf-fusion","corpus":"eval-public","retrieval_q":"reciprocal rank fusion RRF hybrid","expected_doc_ids":["doc-2b5b8b5496ab4acb0c1b24acf771aa4b157b2cd8"]}
+{"id":"pub-fusion-weight","corpus":"eval-public","retrieval_q":"fusion weight vector BM25 sixty percent","expected_doc_ids":["doc-2b5b8b5496ab4acb0c1b24acf771aa4b157b2cd8"]}
+{"id":"pub-chunk-size","corpus":"eval-public","retrieval_q":"chunk size four hundred eight hundred tokens","expected_doc_ids":["doc-b2b5fc79d72d426d8c1180949852bd23b4de4314"]}
+{"id":"pub-chunk-overlap","corpus":"eval-public","retrieval_q":"overlap adjacent chunks ten twenty percent","expected_doc_ids":["doc-b2b5fc79d72d426d8c1180949852bd23b4de4314"]}
+{"id":"pub-chunk-metadata","corpus":"eval-public","retrieval_q":"chunk metadata document id section path corpus","expected_doc_ids":["doc-b2b5fc79d72d426d8c1180949852bd23b4de4314"]}
+{"id":"pub-cosine-embeddings","corpus":"eval-public","retrieval_q":"cosine similarity embedding vectors semantic","expected_doc_ids":["doc-c7d258f3891dd54cd46c922b9b0fc80ca3c39512"]}
+{"id":"pub-nomic-embed","corpus":"eval-public","retrieval_q":"Ollama nomic-embed-text local embedding","expected_doc_ids":["doc-c7d258f3891dd54cd46c922b9b0fc80ca3c39512"]}
+{"id":"pub-bm25-only","corpus":"eval-public","retrieval_q":"disable embeddings BM25 only paraphrases","expected_doc_ids":["doc-c7d258f3891dd54cd46c922b9b0fc80ca3c39512"]}
+{"id":"pub-recall-mrr","corpus":"eval-public","retrieval_q":"Recall at k mean reciprocal rank MRR","expected_doc_ids":["doc-e4a462e552d94c2da3f002ffb39e9c9d2efbe902"]}
+{"id":"pub-ragas","corpus":"eval-public","retrieval_q":"RAGAS faithfulness answer relevancy","expected_doc_ids":["doc-e4a462e552d94c2da3f002ffb39e9c9d2efbe902"]}
+{"id":"pub-gold-constants","corpus":"eval-public","retrieval_q":"gold question set expected chunk identifiers","expected_doc_ids":["doc-e4a462e552d94c2da3f002ffb39e9c9d2efbe902"]}
+{"id":"pub-out-of-corpus","corpus":"eval-public","retrieval_q":"capital of Mongolia Ulaanbaatar population 2024","expect_no_results":true}
+{"id":"pub-nonsense-year","corpus":"eval-public","retrieval_q":"world cup winner 1800 football","expect_no_results":true}

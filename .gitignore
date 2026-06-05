@@ -1,0 +1,12 @@
+legal.bleve
+legal.tantivy
+legal.db
+legal.f4kvs
+.env
+.env.*
+!.env.example
+.deps/
+bin/
+lib/
+eval/out/*
+!eval/out/.gitkeep

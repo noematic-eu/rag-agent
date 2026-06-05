@@ -1,0 +1,32 @@
+{"id":"dom-marcus-virtue","corpus":"eval-domain","retrieval_q":"Marcus Aurelius virtue reason ruling faculty","expected_doc_ids":["doc-6f8e03b52df3c914dc1344f193b1f0b0af5dd8c0"]}
+{"id":"dom-marcus-death","corpus":"eval-domain","retrieval_q":"Marcus Aurelius death natural transformation fear","expected_doc_ids":["doc-6f8e03b52df3c914dc1344f193b1f0b0af5dd8c0"]}
+{"id":"dom-marcus-opinions","corpus":"eval-domain","retrieval_q":"other people opinions outside power judgments","expected_doc_ids":["doc-6f8e03b52df3c914dc1344f193b1f0b0af5dd8c0"]}
+{"id":"dom-marcus-nature","corpus":"eval-domain","retrieval_q":"acceptance nature order discipline","expected_doc_ids":["doc-6f8e03b52df3c914dc1344f193b1f0b0af5dd8c0"]}
+{"id":"dom-seneca-imagination","corpus":"eval-domain","retrieval_q":"suffer more imagination than reality anticipated","expected_doc_ids":["doc-79569ec4521952df1a941641d796b6d8116f82e6"]}
+{"id":"dom-seneca-wealth","corpus":"eval-domain","retrieval_q":"true wealth wanting little fortune tranquil","expected_doc_ids":["doc-79569ec4521952df1a941641d796b6d8116f82e6"]}
+{"id":"dom-seneca-philosophy","corpus":"eval-domain","retrieval_q":"philosophy practical medicine soul Seneca","expected_doc_ids":["doc-79569ec4521952df1a941641d796b6d8116f82e6"]}
+{"id":"dom-seneca-life-short","corpus":"eval-domain","retrieval_q":"shortness of life used well luxury distraction","expected_doc_ids":["doc-79569ec4521952df1a941641d796b6d8116f82e6"]}
+{"id":"dom-plato-cave","corpus":"eval-domain","retrieval_q":"myth of the cave shadows wall education soul","expected_doc_ids":["doc-2743e96ade8684546d057c6303b9361b2f6e3ebf"]}
+{"id":"dom-plato-philosopher-king","corpus":"eval-domain","retrieval_q":"philosopher kings Form of the Good rule","expected_doc_ids":["doc-2743e96ade8684546d057c6303b9361b2f6e3ebf"]}
+{"id":"dom-plato-justice","corpus":"eval-domain","retrieval_q":"justice individual city Republic dialogue","expected_doc_ids":["doc-2743e96ade8684546d057c6303b9361b2f6e3ebf"]}
+{"id":"dom-plato-tripartite","corpus":"eval-domain","retrieval_q":"tripartite soul reason spirit appetite classes","expected_doc_ids":["doc-2743e96ade8684546d057c6303b9361b2f6e3ebf"]}
+{"id":"dom-aristotle-eudaimonia","corpus":"eval-domain","retrieval_q":"eudaimonia happiness activity soul virtue complete life","expected_doc_ids":["doc-db6df517515565728b38b9a82a800a3fcc2e5a01"]}
+{"id":"dom-aristotle-mean","corpus":"eval-domain","retrieval_q":"mean between excess deficiency phronesis practical wisdom","expected_doc_ids":["doc-db6df517515565728b38b9a82a800a3fcc2e5a01"]}
+{"id":"dom-aristotle-friendship","corpus":"eval-domain","retrieval_q":"friendship of virtue pleasure utility inferior","expected_doc_ids":["doc-db6df517515565728b38b9a82a800a3fcc2e5a01"]}
+{"id":"dom-aristotle-habit","corpus":"eval-domain","retrieval_q":"moral virtue acquired habit just actions","expected_doc_ids":["doc-db6df517515565728b38b9a82a800a3fcc2e5a01"]}
+{"id":"dom-darwin-selection","corpus":"eval-domain","retrieval_q":"natural selection heritable variation species change","expected_doc_ids":["doc-b17b763c634fe9cf81e7f9b7f1802cb7d4fe0158"]}
+{"id":"dom-darwin-competition","corpus":"eval-domain","retrieval_q":"competition limited resources survival reproduction traits","expected_doc_ids":["doc-b17b763c634fe9cf81e7f9b7f1802cb7d4fe0158"]}
+{"id":"dom-darwin-fossil","corpus":"eval-domain","retrieval_q":"fossil record biogeography common descent gradual","expected_doc_ids":["doc-b17b763c634fe9cf81e7f9b7f1802cb7d4fe0158"]}
+{"id":"dom-darwin-breeding","corpus":"eval-domain","retrieval_q":"domestic breeding humans select traits nature filter","expected_doc_ids":["doc-b17b763c634fe9cf81e7f9b7f1802cb7d4fe0158"]}
+{"id":"dom-newton-laws","corpus":"eval-domain","retrieval_q":"laws of motion force acceleration proportional","expected_doc_ids":["doc-30b092a60b43d45a9fef138e334c0d9ca83f999c"]}
+{"id":"dom-newton-gravity","corpus":"eval-domain","retrieval_q":"inverse square gravity Kepler elliptical orbits","expected_doc_ids":["doc-30b092a60b43d45a9fef138e334c0d9ca83f999c"]}
+{"id":"dom-newton-celestial","corpus":"eval-domain","retrieval_q":"celestial terrestrial mechanics universal gravitation","expected_doc_ids":["doc-30b092a60b43d45a9fef138e334c0d9ca83f999c"]}
+{"id":"dom-newton-space","corpus":"eval-domain","retrieval_q":"absolute space time observable motion relative","expected_doc_ids":["doc-30b092a60b43d45a9fef138e334c0d9ca83f999c"]}
+{"id":"dom-turing-imitation","corpus":"eval-domain","retrieval_q":"imitation game machine intelligent behavior Turing","expected_doc_ids":["doc-38550f36e3cd593d3de3b2b24ceb1a0789dab77d"]}
+{"id":"dom-turing-universal","corpus":"eval-domain","retrieval_q":"universal Turing machine computable function tape","expected_doc_ids":["doc-38550f36e3cd593d3de3b2b24ceb1a0789dab77d"]}
+{"id":"dom-turing-halting","corpus":"eval-domain","retrieval_q":"halting problem algorithm termination limits","expected_doc_ids":["doc-38550f36e3cd593d3de3b2b24ceb1a0789dab77d"]}
+{"id":"dom-turing-learning","corpus":"eval-domain","retrieval_q":"learning machines hand programmed rules artificial intelligence","expected_doc_ids":["doc-38550f36e3cd593d3de3b2b24ceb1a0789dab77d"]}
+{"id":"dom-curie-radium","corpus":"eval-domain","retrieval_q":"Curie isolates radium polonium radioactivity atomic","expected_doc_ids":["doc-3d8d61ef2f20db14f581f3f8d9df83233e467940"]}
+{"id":"dom-curie-pitchblende","corpus":"eval-domain","retrieval_q":"pitchblende residues stronger radiation uranium unknown elements","expected_doc_ids":["doc-3d8d61ef2f20db14f581f3f8d9df83233e467940"]}
+{"id":"dom-curie-electrometer","corpus":"eval-domain","retrieval_q":"electrometer measurement energy release without chemical change","expected_doc_ids":["doc-3d8d61ef2f20db14f581f3f8d9df83233e467940"]}
+{"id":"dom-curie-radiotherapy","corpus":"eval-domain","retrieval_q":"nuclear chemistry medical radiotherapy laboratory exposure","expected_doc_ids":["doc-3d8d61ef2f20db14f581f3f8d9df83233e467940"]}

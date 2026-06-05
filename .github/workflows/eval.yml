@@ -1,0 +1,53 @@
+name: retrieval-eval
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  public-retrieval:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lexical-engine: [bleve, tantivy, f4kvs]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build f4kvs, tantivy, and agent
+        run: make f4kvs tantivy agent
+
+      - name: Start agent
+        run: |
+          DATA_DIR="/tmp/rag-eval-${{ matrix.lexical-engine }}"
+          rm -rf "$DATA_DIR"
+          ./bin/agent -addr 127.0.0.1:8080 -data-dir "$DATA_DIR" \
+            -lexical-engine=${{ matrix.lexical-engine }} -disable-embeddings &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8080/stats && break
+            sleep 1
+          done
+
+      - name: Ingest public fixtures and run eval
+        run: |
+          MIN=0
+          if [[ "${{ matrix.lexical-engine }}" == "bleve" ]]; then
+            MIN=0.65
+          fi
+          ./scripts/eval_setup_public.sh http://127.0.0.1:8080
+          EVAL_MIN_RECALL="$MIN" EVAL_OUT="eval/out/retrieval_${{ matrix.lexical-engine }}.json" \
+            ./scripts/eval.sh http://127.0.0.1:8080 eval/gold/public.jsonl
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrieval-${{ matrix.lexical-engine }}
+          path: eval/out/retrieval_${{ matrix.lexical-engine }}.json

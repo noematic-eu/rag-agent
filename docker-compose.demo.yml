@@ -1,0 +1,69 @@
+# Self-contained demo stack for VPS deployment (agent + Ollama + one-shot seed).
+#
+# Prerequisites:
+#   cp .env.example .env   # set F4KVS_ROOT
+#
+# Usage:
+#   docker compose -f docker-compose.demo.yml up -d --build
+#   docker compose -f docker-compose.demo.yml run --rm demo-seed
+#   docker exec rag-agent-demo-ollama ollama pull llama3.2
+#   docker exec rag-agent-demo-ollama ollama pull nomic-embed-text
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-agent-demo-ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  rag-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      additional_contexts:
+        f4kvs: ${F4KVS_ROOT:?Set F4KVS_ROOT in .env to your local f4kvs-v2 checkout}
+    container_name: rag-agent-demo
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      RAG_LISTEN: ":8080"
+      RAG_DATA_DIR: "/data"
+      RAG_DEMO_MODE: "true"
+      RAG_CORS_ORIGINS: "${RAG_CORS_ORIGINS:-}"
+      RAG_LLM_PROVIDER: "ollama"
+      RAG_LLM_BASE_URL: "http://ollama:11434"
+      RAG_LLM_MODEL: "${RAG_LLM_MODEL:-llama3.2}"
+      RAG_EMBEDDING_MODEL: "nomic-embed-text"
+      RAG_LEXICAL_ENGINE: "bleve"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - rag-demo-data:/data
+    restart: unless-stopped
+
+  demo-seed:
+    image: golang:1.24-bookworm
+    working_dir: /src
+    volumes:
+      - .:/src
+    depends_on:
+      rag-agent:
+        condition: service_started
+    environment:
+      FORCE_DEMO_SEED: "${FORCE_DEMO_SEED:-0}"
+    entrypoint: ["/src/scripts/demo_seed.sh", "http://rag-agent:8080"]
+    profiles:
+      - seed
+    restart: "no"
+
+volumes:
+  rag-demo-data:
+  ollama-data:

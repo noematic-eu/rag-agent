@@ -1,0 +1,16 @@
+#!/bin/sh
+# Full RAG search via plan9port 9p (retrieve + LLM).
+# Usage: rag-search 'your question'
+# Requires: plan9port 9p in PATH, agent running with -9p-addr
+# Env: RAG_9P_ADDR (default unix!/tmp/rag9p; quote in zsh)
+
+set -e
+addr=${RAG_9P_ADDR:-unix!/tmp/rag9p}
+query=$*
+if [ -z "$query" ]; then
+	echo 'usage: rag-search question...' >&2
+	exit 1
+fi
+
+printf '%s' "$query" | 9p -a "$addr" write search/ctl
+9p -a "$addr" read search/data
