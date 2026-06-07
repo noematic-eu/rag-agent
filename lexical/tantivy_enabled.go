@@ -82,7 +82,7 @@ func buildTantivySchema() (*tantivy.Schema, error) {
 	for _, f := range textOpts {
 		if err := builder.AddTextField(
 			f.name, true, true, false,
-			tantivy.IndexRecordOptionWithFreqs,
+			tantivy.IndexRecordOptionWithFreqsAndPositions,
 			tantivy.TokenizerSimple,
 		); err != nil {
 			return nil, err
