@@ -1,7 +1,7 @@
 F4KVS_ROOT ?= $(HOME)/dev/rust/f4kvs-v2
 F4KVS_TARGET ?= $(F4KVS_ROOT)/target/ffi-release
 TANTIVY_SRC ?= $(CURDIR)/.deps/tantivy-go
-TANTIVY_MOD_DIR := $(shell go list -m -f '{{.Dir}}' github.com/anyproto/tantivy-go@v1.0.6 2>/dev/null)
+TANTIVY_MODULE := github.com/anyproto/tantivy-go@v1.0.6
 LIB_DIR := lib
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
@@ -37,10 +37,14 @@ f4kvs:
 		cp $(F4KVS_TARGET)/release/libf4kvs_ffi.so $(LIB_DIR)/ 2>/dev/null || true
 
 $(TANTIVY_SRC)/rust/Cargo.toml:
-	@if [ -z "$(TANTIVY_MOD_DIR)" ]; then echo "run: go mod download github.com/anyproto/tantivy-go@v1.0.6"; exit 1; fi
-	mkdir -p .deps
-	rm -rf "$(TANTIVY_SRC)"
-	cp -R "$(TANTIVY_MOD_DIR)" "$(TANTIVY_SRC)"
+	go mod download $(TANTIVY_MODULE)
+	@TANTIVY_MOD_DIR=$$(go list -m -f '{{.Dir}}' $(TANTIVY_MODULE)); \
+	if [ -z "$$TANTIVY_MOD_DIR" ]; then \
+		echo "failed to resolve $(TANTIVY_MODULE)"; exit 1; \
+	fi; \
+	mkdir -p .deps; \
+	rm -rf "$(TANTIVY_SRC)"; \
+	cp -R "$$TANTIVY_MOD_DIR" "$(TANTIVY_SRC)"; \
 	chmod -R u+w "$(TANTIVY_SRC)"
 
 tantivy: $(TANTIVY_SRC)/rust/Cargo.toml
