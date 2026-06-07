@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-
 type openAICompleteResponse struct {
 	Choices []struct {
 		Message struct {

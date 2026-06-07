@@ -15,18 +15,18 @@ import (
 
 // GoldCase is one labeled evaluation row (JSONL).
 type GoldCase struct {
-	ID               string   `json:"id"`
-	Corpus           string   `json:"corpus,omitempty"`
-	RetrievalQ       string   `json:"retrieval_q"`
-	GenerationQ      string   `json:"generation_q,omitempty"`
-	ExpectedChunkIDs []string `json:"expected_chunk_ids,omitempty"`
-	ExpectedDocIDs   []string `json:"expected_doc_ids,omitempty"`
-	ExpectedSections     []string            `json:"expected_sections,omitempty"`
-	MatchAllSections     bool                `json:"match_all_sections,omitempty"`
+	ID                    string              `json:"id"`
+	Corpus                string              `json:"corpus,omitempty"`
+	RetrievalQ            string              `json:"retrieval_q"`
+	GenerationQ           string              `json:"generation_q,omitempty"`
+	ExpectedChunkIDs      []string            `json:"expected_chunk_ids,omitempty"`
+	ExpectedDocIDs        []string            `json:"expected_doc_ids,omitempty"`
+	ExpectedSections      []string            `json:"expected_sections,omitempty"`
+	MatchAllSections      bool                `json:"match_all_sections,omitempty"`
 	ExcerptTermsBySection map[string][]string `json:"excerpt_terms_by_section,omitempty"`
-	GenerationPhrases   []string            `json:"generation_phrases,omitempty"`
-	ReferenceAnswer      string              `json:"reference_answer,omitempty"`
-	ExpectNoResults  bool     `json:"expect_no_results,omitempty"`
+	GenerationPhrases     []string            `json:"generation_phrases,omitempty"`
+	ReferenceAnswer       string              `json:"reference_answer,omitempty"`
+	ExpectNoResults       bool                `json:"expect_no_results,omitempty"`
 }
 
 type retrievalEvalConfig struct {
@@ -156,12 +156,12 @@ type excerptEvalConfig struct {
 }
 
 type excerptEvalReport struct {
-	Set       string           `json:"set"`
-	Server    string           `json:"server"`
-	TopK      int              `json:"top_k"`
-	Cases     int              `json:"cases"`
-	PassRate  float64          `json:"pass_rate"`
-	PerCase   []excerptCaseRow `json:"per_case"`
+	Set      string           `json:"set"`
+	Server   string           `json:"server"`
+	TopK     int              `json:"top_k"`
+	Cases    int              `json:"cases"`
+	PassRate float64          `json:"pass_rate"`
+	PerCase  []excerptCaseRow `json:"per_case"`
 }
 
 type excerptCaseRow struct {

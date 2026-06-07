@@ -21,10 +21,8 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/checkout@v4
-        with:
-          repository: noematic-eu/f4kvs-ffi
-          path: f4kvs-ffi
+      - name: Clone f4kvs-ffi
+        run: git clone --depth 1 https://github.com/noematic-eu/f4kvs-ffi.git f4kvs-ffi
 
       - name: Build f4kvs, tantivy, and agent
         env:
