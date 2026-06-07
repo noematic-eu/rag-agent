@@ -24,7 +24,7 @@ jobs:
       - name: Vet and test (no f4kvs)
         run: make vet test-lite
 
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
 
@@ -43,7 +43,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Clone f4kvs-ffi
-        run: git clone --depth 1 https://github.com/noematic-eu/f4kvs-ffi.git f4kvs-ffi
+        run: git -c credential.helper= clone --depth 1 https://github.com/noematic-eu/f4kvs-ffi.git f4kvs-ffi
 
       - name: Build and test
         env:
