@@ -9,7 +9,7 @@ Feature development happens in the private `noematic-eu/rag-agent` repository. T
 - Go 1.24+ with CGO enabled (for agent build and full tests)
 - Rust toolchain (for f4kvs FFI)
 - [golangci-lint](https://golangci-lint.run/) v2+ (for `make lint` / `make check`)
-- f4kvs-v2 checkout (for agent and full test suite — see below)
+- f4kvs-ffi checkout (for agent and full test suite — see below)
 - Ollama or an OpenAI-compatible local LLM endpoint (for runtime eval)
 
 Install golangci-lint:
@@ -18,18 +18,17 @@ Install golangci-lint:
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 ```
 
-## f4kvs-v2 dependency
+## f4kvs-ffi dependency
 
-Chunk persistence uses [f4kvs-v2](https://git.noematic.eu/f4kvs-org/f4kvs-v2.git), which is **not** bundled in this repository. Clone it separately and set `F4KVS_ROOT` in `.env`:
+Chunk persistence uses [f4kvs-ffi](https://github.com/noematic-eu/f4kvs-ffi), which is **not** bundled in this repository. Clone it separately and set `F4KVS_ROOT` in `.env`:
 
 ```bash
+git clone https://github.com/noematic-eu/f4kvs-ffi.git ~/dev/rust/f4kvs-ffi
 cp .env.example .env
-# edit F4KVS_ROOT=/path/to/f4kvs-v2
+# edit F4KVS_ROOT=/path/to/f4kvs-ffi
 ```
 
-Contact [contact@noematic.eu](mailto:contact@noematic.eu) if you need access to the f4kvs-v2 repository.
-
-Without f4kvs, you can still run `make check` and work on `./client`, `./lexical`, `./agent/p9fs`, and `./model`. See the README section [Without f4kvs access](../README.md#without-f4kvs-access).
+Without building f4kvs, you can still run `make check` and work on `./client`, `./lexical`, `./agent/p9fs`, and `./model`. See the README section [Without building f4kvs](../README.md#without-building-f4kvs).
 
 ## Makefile targets
 
@@ -48,13 +47,9 @@ Without f4kvs, you can still run `make check` and work on `./client`, `./lexical
 | `make agent` | Build `./bin/agent` |
 | `make client` | Build `./bin/client` (no CGO) |
 
-## CI secrets
+## CI
 
-Public CI runs format checks, lint, and tests that do not require f4kvs. To enable the full build, test suite, and retrieval eval workflow on GitHub Actions, add a repository secret:
-
-- `F4KVS_REPO_TOKEN` — read-only personal access token for `git.noematic.eu` with access to `f4kvs-org/f4kvs-v2`
-
-Without this secret, forks and external contributors still get a green lint/test CI; the f4kvs-gated jobs are skipped.
+GitHub Actions runs format checks, lint, lightweight tests, full build/test (with f4kvs-ffi cloned from public GitHub), and retrieval eval on every push and pull request. No repository secrets are required for f4kvs.
 
 ## Build and test
 

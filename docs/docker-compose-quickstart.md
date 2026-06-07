@@ -2,20 +2,20 @@
 
 This bundle starts `rag-agent` in Docker for local pilots. By default it uses **Ollama on the host** (`host.docker.internal:11434`), not a containerized Ollama service.
 
-## 0) f4kvs-v2 prerequisite
+## 0) f4kvs-ffi prerequisite
 
-`rag-agent` links against **f4kvs-ffi**, which is **not** on public GitHub. Clone or use your existing checkout:
+`rag-agent` links against **f4kvs-ffi**. Clone or use your existing checkout:
 
 ```bash
 # if needed
-git clone https://git.noematic.eu/f4kvs-org/f4kvs-v2.git ~/dev/rust/f4kvs-v2
+git clone https://github.com/noematic-eu/f4kvs-ffi.git ~/dev/rust/f4kvs-ffi
 ```
 
 Copy `.env.example` to `.env` and set `F4KVS_ROOT` to that path:
 
 ```bash
 cp .env.example .env
-# edit F4KVS_ROOT=/Users/you/dev/rust/f4kvs-v2
+# edit F4KVS_ROOT=/Users/you/dev/rust/f4kvs-ffi
 ```
 
 ## 1) Build and run

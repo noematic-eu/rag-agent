@@ -13,7 +13,7 @@ A lightweight Retrieval-Augmented Generation (RAG) service in Go with:
 - [Clone](#clone)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
-- [f4kvs-v2 access](#f4kvs-v2-access)
+- [f4kvs FFI](#f4kvs-ffi)
 - [Build](#build)
 - [Quick start for evaluators](#quick-start-for-evaluators)
 - [Release artifacts](#release-artifacts)
@@ -57,20 +57,27 @@ Storage and retrieval flow:
 ## Prerequisites
 
 - Go `1.24+` with CGO enabled
-- Rust toolchain (to build f4kvs FFI from `~/dev/rust/f4kvs-v2`; remote: `https://git.noematic.eu/f4kvs-org/f4kvs-v2.git`)
+- Rust toolchain (to build f4kvs FFI from `~/dev/rust/f4kvs-ffi`; remote: `https://github.com/noematic-eu/f4kvs-ffi.git`)
 - An LLM backend:
   - **Ollama** (default): `http://localhost:11434`
   - **LM Studio** (OpenAI-compatible): enable the local server, typically `http://localhost:1234/v1`
 
-## f4kvs-v2 access
+## f4kvs FFI
 
-Chunk storage requires the **f4kvs-v2** Rust library, hosted separately at `https://git.noematic.eu/f4kvs-org/f4kvs-v2.git`. It is not on public GitHub. Clone it locally, set `F4KVS_ROOT` in `.env`, then run `make f4kvs`. Contact [contact@noematic.eu](mailto:contact@noematic.eu) if you need repository access.
+Chunk storage requires the **f4kvs-ffi** Rust library, hosted at [github.com/noematic-eu/f4kvs-ffi](https://github.com/noematic-eu/f4kvs-ffi). Clone it locally, set `F4KVS_ROOT` in `.env`, then run `make f4kvs`:
+
+```bash
+git clone https://github.com/noematic-eu/f4kvs-ffi.git ~/dev/rust/f4kvs-ffi
+cp .env.example .env
+# edit F4KVS_ROOT=/path/to/f4kvs-ffi
+make f4kvs
+```
 
 Once the f4kvs FFI library is built, Bleve and Tantivy lexical engines work as documented below.
 
-### Without f4kvs access
+### Without building f4kvs
 
-You can still work on much of the codebase without the native library:
+You can work on much of the codebase without building the native library:
 
 - **Build and test** (no CGO): `./client`, `./lexical`, `./agent/p9fs`, `./model`
 - **Quality checks**: `make check` (format, vet, lint, and `test-lite` — no f4kvs required)
@@ -90,7 +97,7 @@ make agent    # builds ./bin/agent (CGO + -tags tantivy)
 Override the f4kvs source tree if needed:
 
 ```bash
-make f4kvs F4KVS_ROOT=/path/to/f4kvs-v2
+make f4kvs F4KVS_ROOT=/path/to/f4kvs-ffi
 ```
 
 Build the CLI client only (no f4kvs, no CGO):

@@ -7,7 +7,6 @@ on:
 
 jobs:
   public-retrieval:
-    if: ${{ secrets.F4KVS_REPO_TOKEN != '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -22,20 +21,19 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Clone f4kvs-v2
-        env:
-          F4KVS_REPO_TOKEN: ${{ secrets.F4KVS_REPO_TOKEN }}
-        run: |
-          git clone "https://oauth2:${F4KVS_REPO_TOKEN}@git.noematic.eu/f4kvs-org/f4kvs-v2.git" "$GITHUB_WORKSPACE/f4kvs-v2"
+      - uses: actions/checkout@v4
+        with:
+          repository: noematic-eu/f4kvs-ffi
+          path: f4kvs-ffi
 
       - name: Build f4kvs, tantivy, and agent
         env:
-          F4KVS_ROOT: ${{ github.workspace }}/f4kvs-v2
+          F4KVS_ROOT: ${{ github.workspace }}/f4kvs-ffi
         run: make f4kvs tantivy agent
 
       - name: Start agent
         env:
-          F4KVS_ROOT: ${{ github.workspace }}/f4kvs-v2
+          F4KVS_ROOT: ${{ github.workspace }}/f4kvs-ffi
         run: |
           DATA_DIR="/tmp/rag-eval-${{ matrix.lexical-engine }}"
           rm -rf "$DATA_DIR"
