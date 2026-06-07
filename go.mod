@@ -9,7 +9,7 @@ require (
 	github.com/blevesearch/bleve/v2 v2.5.7
 	github.com/gin-gonic/gin v1.10.0
 	github.com/knusbaum/go9p v1.18.0
-	github.com/yuin/goldmark v1.7.8
+	github.com/yuin/goldmark v1.8.2
 )
 
 require (
