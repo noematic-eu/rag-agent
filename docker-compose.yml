@@ -17,11 +17,7 @@ services:
   #     retries: 10
 
   rag-agent:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      additional_contexts:
-        f4kvs: ${F4KVS_ROOT:?Set F4KVS_ROOT in .env to your local f4kvs-v2 checkout}
+    image: ghcr.io/noematic-eu/rag-agent:latest
     container_name: rag-agent
     # depends_on:            # uncomment when ollama service is enabled above
     #   ollama:
