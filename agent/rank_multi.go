@@ -25,9 +25,9 @@ func rankChunksMulti(queries []string, p rankParams) (rankOutcome, error) {
 
 	rankLists := make([]map[string]int, 0, len(queries))
 	mergedChunks := make(map[string]model.Chunk)
-	var bestOutcome rankOutcome
+	var primaryTopScore float64
 
-	for _, q := range queries {
+	for i, q := range queries {
 		qp := p
 		qp.retrievalText = q
 		qp.topKFinal = perQueryTopK
@@ -35,8 +35,8 @@ func rankChunksMulti(queries []string, p rankParams) (rankOutcome, error) {
 		if err != nil {
 			return rankOutcome{}, err
 		}
-		if len(outcome.hits) > 0 && (bestOutcome.hits == nil || outcome.hits[0].Score > bestOutcome.hits[0].Score) {
-			bestOutcome = outcome
+		if i == 0 && len(outcome.hits) > 0 {
+			primaryTopScore = outcome.hits[0].Score
 		}
 		for id, chunk := range outcome.chunksByID {
 			mergedChunks[id] = chunk
@@ -93,7 +93,12 @@ func rankChunksMulti(queries []string, p rankParams) (rankOutcome, error) {
 		})
 	}
 
-	if len(hits) == 0 {
+	if len(hits) == 0 || primaryTopScore < p.minScore {
+		if p.docID != "" {
+			if fallback, ok := fallbackDocChunks(p.docID, p.corpus, p.topKFinal); ok {
+				return fallback, nil
+			}
+		}
 		return rankOutcome{noResults: true, chunksByID: mergedChunks}, nil
 	}
 	return rankOutcome{hits: hits, chunksByID: mergedChunks}, nil

@@ -131,13 +131,15 @@ Release checklist and artifact list: [`docs/releases/v0.1.0-checklist.md`](docs/
 
 ## Docker Compose
 
-You can run rag-agent with Ollama as a two-service stack:
+You can run rag-agent in Docker with Ollama on the host:
 
 ```bash
 docker compose up -d --build
 ```
 
-Quickstart and smoke-test commands: [`docs/docker-compose-quickstart.md`](docs/docker-compose-quickstart.md).
+Quickstart, seeding, and smoke-test commands: [`docs/docker-compose-quickstart.md`](docs/docker-compose-quickstart.md).
+
+To populate the agent with the Constitution (`legal-demo`) and eval fixtures (`eval-public`), follow §4 of the quickstart.
 
 ## Run the API server
 

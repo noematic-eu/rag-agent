@@ -8,22 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var (
-	corsAllowedOrigins []string
-	demoMode           bool
-)
+var corsAllowedOrigins []string
 
-func initServerSecurity() {
-	demoMode = parseBool(envOr("RAG_DEMO_MODE", "false"))
+func initCORS() {
 	raw := envOr("RAG_CORS_ORIGINS", "")
 	for _, o := range strings.Split(raw, ",") {
 		o = strings.TrimSpace(o)
 		if o != "" {
 			corsAllowedOrigins = append(corsAllowedOrigins, o)
 		}
-	}
-	if demoMode {
-		log.Printf("demo mode: mutating API endpoints disabled")
 	}
 	if len(corsAllowedOrigins) > 0 {
 		log.Printf("CORS allowed origins: %s", strings.Join(corsAllowedOrigins, ", "))
@@ -47,17 +40,6 @@ func corsMiddleware() gin.HandlerFunc {
 		}
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
-	}
-}
-
-func demoModeGuard() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if demoMode {
-			c.JSON(http.StatusForbidden, gin.H{"error": "demo mode: endpoint disabled"})
-			c.Abort()
 			return
 		}
 		c.Next()

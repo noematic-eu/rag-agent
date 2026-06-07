@@ -82,14 +82,14 @@ func main() {
 	}
 
 	if agentCfg.Listen != "" && agentCfg.Listen != "off" && agentCfg.Listen != "none" {
-		initServerSecurity()
+		initCORS()
 
 		r := gin.Default()
 		r.Use(corsMiddleware())
-		r.POST("/ingest", demoModeGuard(), ingestDocument)
-		r.DELETE("/documents/:doc_id", demoModeGuard(), deleteDocument)
-		r.POST("/finalize", demoModeGuard(), finalize)
-		r.POST("/reset", demoModeGuard(), resetIndex)
+		r.POST("/ingest", ingestDocument)
+		r.DELETE("/documents/:doc_id", deleteDocument)
+		r.POST("/finalize", finalize)
+		r.POST("/reset", resetIndex)
 		r.GET("/search", searchDocuments)
 		r.GET("/retrieve", retrieveDocuments)
 		r.GET("/stats", statsHandler)

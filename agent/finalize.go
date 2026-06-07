@@ -1,8 +1,16 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
 
 // finalize to be called once all documents have been ingested
 func finalize(c *gin.Context) {
-	_ = ragAgent.Finalize()
+	if err := ragAgent.Finalize(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "finalize failed: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "finalized"})
 }
