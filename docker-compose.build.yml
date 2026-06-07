@@ -1,0 +1,9 @@
+# Contributor override: build the image locally instead of pulling from GHCR.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  rag-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      additional_contexts:
+        f4kvs: ${F4KVS_ROOT:?Set F4KVS_ROOT in .env to your local f4kvs-ffi checkout}

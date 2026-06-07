@@ -1,0 +1,10 @@
+.git
+.deps/
+lib/
+bin/
+dist/
+eval/out/
+legal.*
+*.md
+docs/
+.github/

@@ -2,31 +2,29 @@
 
 This bundle starts `rag-agent` in Docker for local pilots. By default it uses **Ollama on the host** (`host.docker.internal:11434`), not a containerized Ollama service.
 
-## 0) f4kvs-ffi prerequisite
+Pre-built images are published to **GHCR**: `ghcr.io/noematic-eu/rag-agent` (`linux/amd64`, `linux/arm64`).
 
-`rag-agent` links against **f4kvs-ffi**. Clone or use your existing checkout:
-
-```bash
-# if needed
-git clone https://github.com/noematic-eu/f4kvs-ffi.git ~/dev/rust/f4kvs-ffi
-```
-
-Copy `.env.example` to `.env` and set `F4KVS_ROOT` to that path:
-
-```bash
-cp .env.example .env
-# edit F4KVS_ROOT=/Users/you/dev/rust/f4kvs-ffi
-```
-
-## 1) Build and run
+## 1) Pull and run
 
 Ensure Ollama is running on the host, then start the agent:
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 The compose file publishes the agent on **host port 8081** so it does not clash with a native `./bin/agent` on `127.0.0.1:8080`.
+
+**Without Compose** (one-liner):
+
+```bash
+docker run -d -p 8080:8080 \
+  -v ./rag-data:/data \
+  -e RAG_LLM_BASE_URL=http://host.docker.internal:11434 \
+  --add-host=host.docker.internal:host-gateway \
+  --name rag-agent \
+  ghcr.io/noematic-eu/rag-agent:latest
+```
 
 To run a fully self-contained stack (Ollama in Docker), uncomment the `ollama` service and `ollama-data` volume in [`docker-compose.yml`](../docker-compose.yml), then use `docker exec rag-agent-ollama ollama pull ...` instead of the host commands below.
 
@@ -80,4 +78,25 @@ To remove indexes too:
 
 ```bash
 docker compose down -v
+```
+
+## Building from source (contributors)
+
+`rag-agent` links against **f4kvs-ffi**. Clone or use your existing checkout:
+
+```bash
+git clone https://github.com/noematic-eu/f4kvs-ffi.git ~/dev/rust/f4kvs-ffi
+```
+
+Copy `.env.example` to `.env` and set `F4KVS_ROOT` to that path:
+
+```bash
+cp .env.example .env
+# edit F4KVS_ROOT=/Users/you/dev/rust/f4kvs-ffi
+```
+
+Build locally instead of pulling from GHCR:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```

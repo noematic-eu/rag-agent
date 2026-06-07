@@ -136,15 +136,31 @@ chmod +x ./scripts/release/build_binaries.sh
 
 Release checklist and artifact list: [`docs/releases/v0.1.0-checklist.md`](docs/releases/v0.1.0-checklist.md).
 
-## Docker Compose
+## Docker (pre-built image)
 
-You can run rag-agent in Docker with Ollama on the host:
+Published multi-arch images: `ghcr.io/noematic-eu/rag-agent` (`linux/amd64`, `linux/arm64`).
+
+**One-liner** (Ollama on the host):
 
 ```bash
-docker compose up -d --build
+docker run -d -p 8080:8080 \
+  -v ./rag-data:/data \
+  -e RAG_LLM_BASE_URL=http://host.docker.internal:11434 \
+  --add-host=host.docker.internal:host-gateway \
+  --name rag-agent \
+  ghcr.io/noematic-eu/rag-agent:latest
+```
+
+**Docker Compose** (pulls the image; no local Rust/Go build):
+
+```bash
+docker compose pull
+docker compose up -d
 ```
 
 Quickstart, seeding, and smoke-test commands: [`docs/docker-compose-quickstart.md`](docs/docker-compose-quickstart.md).
+
+To build from source instead of pulling, use `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` (requires `F4KVS_ROOT` in `.env`).
 
 To populate the agent with the Constitution (`legal-demo`) and eval fixtures (`eval-public`), follow §4 of the quickstart.
 
