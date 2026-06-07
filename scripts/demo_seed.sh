@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SERVER="${1:-http://127.0.0.1:8080}"
+SERVER="${1:-http://127.0.0.1:8081}"
 FORCE="${FORCE_DEMO_SEED:-0}"
 
 wait_for_agent() {

@@ -14,13 +14,13 @@ func TestTopKVectorHitsWithF4kvs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	store, err := f4kvs.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	chunkStore = &f4kvsChunkStore{store: store}
 	t.Cleanup(func() { chunkStore = nil })

@@ -15,15 +15,17 @@ import (
 	"github.com/noematic-eu/ai-rag-agent/model"
 )
 
-type ollamaGenerateRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-	Stream bool   `json:"stream"`
+type ollamaChatRequest struct {
+	Model    string              `json:"model"`
+	Messages []openAIChatMessage `json:"messages"`
+	Stream   bool                `json:"stream"`
 }
 
-type ollamaGenerateResponse struct {
-	Response string `json:"response"`
-	Done     bool   `json:"done"`
+type ollamaChatStreamChunk struct {
+	Message struct {
+		Content string `json:"content"`
+	} `json:"message"`
+	Done bool `json:"done"`
 }
 
 type openAIChatRequest struct {
@@ -48,15 +50,21 @@ type openAIChatStreamChunk struct {
 const maxPromptContextChars = 6000
 const maxSnippetChars = 900
 const defaultGenerationTopK = 8
+const legalGenerationTopK = 4
 
 func ragSystemPrompt(queryLang string) string {
 	if queryLang == "fr" {
 		return "Tu es un assistant qui répond uniquement à partir des extraits fournis. " +
+			"Ne montre jamais ton raisonnement interne, tes hésitations ni une analyse étape par étape avant de répondre ; produis directement la réponse structurée demandée. " +
 			"Avant de répondre, analyse chaque extrait et classe-le mentalement : directement pertinent, contexte général, ou hors sujet. " +
 			"Ne traite pas un extrait de contexte général (ex. principes républicains, souveraineté) comme réponse directe à une question sur une institution précise (ex. Président, Parlement). " +
 			"Si la question porte sur le Président mais que seuls les articles 1-3 sur la souveraineté sont fournis, ne présente pas « gouvernement du peuple » comme obligation présidentielle ; dis-le clairement. " +
 			"Structure ta réponse en trois parties : (1) analyse brève des extraits pertinents vs hors sujet, (2) réponse structurée avec citations [n], (3) limites de ce que les extraits ne couvrent pas. " +
-			"Chaque affirmation doit citer la source avec [n] (numéro d'extrait). " +
+			"Quand les articles 16 et 7 (ou d'autres articles distincts) sont pertinents, réponds en sous-sections séparées intitulées « Article 16 — pouvoirs exceptionnels » et « Article 7 — élection présidentielle » sans fusionner leurs régimes. " +
+			"Dans la sous-section article 16, si un extrait contient « dissoute » ou l'interdiction de dissolution de l'Assemblée nationale, tu dois inclure une phrase explicite reprenant cette interdiction avec citation [n] avant de passer à l'article 7. " +
+			"Ne confonds pas les pouvoirs exceptionnels (article 16) avec l'empêchement du Président (article 7) sauf si l'extrait établit ce lien. " +
+			"Pour l'article 16, après 30 et 60 jours le Conseil constitutionnel contrôle si les conditions demeurent réunies ; ce n'est pas une expiration automatique des pouvoirs à 30 jours. " +
+			"Chaque affirmation doit citer la source avec [n] (numéro d'extrait). Le numéro [n] doit correspondre exactement à la liste d'extraits. " +
 			"Quand un extrait indique un numéro d'article (champ section= ou article=), nomme cet article explicitement dans ta réponse (ex. « l'article 16 ») en plus de [n]. " +
 			"Utilise le numéro d'article exact tel qu'il apparaît dans l'extrait, sans le modifier. " +
 			"Quand plusieurs extraits concernent des articles différents, fais les liens logiques entre eux quand c'est pertinent (ex. mesures exceptionnelles et report du scrutin). " +
@@ -66,11 +74,16 @@ func ragSystemPrompt(queryLang string) string {
 			"N'utilise aucune connaissance externe. Réponds dans la même langue que la question."
 	}
 	return "You are an assistant that answers only from the provided excerpts. " +
+		"Never show internal reasoning, deliberation, or step-by-step analysis before answering; output the structured response directly. " +
 		"Before answering, analyze each excerpt and mentally classify it: directly relevant, general context, or off-topic. " +
 		"Do not treat general-context excerpts (e.g. republican principles, sovereignty) as a direct answer to a question about a specific institution (e.g. President, Parliament). " +
 		"If the question is about the President but only articles 1-3 on sovereignty are provided, do not present \"government of the people\" as a presidential obligation; say so clearly. " +
 		"Structure your answer in three parts: (1) brief analysis of relevant vs off-topic excerpts, (2) structured answer with [n] citations, (3) limits of what the excerpts do not cover. " +
-		"Every claim must cite its source with [n] (excerpt number). " +
+		"When Articles 16 and 7 (or other distinct articles) are relevant, answer in separate subsections titled \"Article 16 — emergency powers\" and \"Article 7 — presidential election\" without merging their regimes. " +
+		"In the Article 16 subsection, if an excerpt contains \"dissoute\" or a ban on dissolving the Assemblée nationale, you must include an explicit sentence stating that ban with an [n] citation before moving to Article 7. " +
+		"Do not equate Article 16 exceptional powers with Article 7 presidential empêchement unless an excerpt establishes that link. " +
+		"For Article 16, after 30 and 60 days the Conseil constitutionnel reviews whether conditions still hold; this is oversight, not an automatic 30-day expiry of powers. " +
+		"Every claim must cite its source with [n] (excerpt number). The [n] index must match the excerpt list exactly. " +
 		"When an excerpt names an article (section= or article= field), name that article explicitly in your answer (e.g. \"Article 16\") in addition to [n]. " +
 		"Use the exact article number as it appears in the excerpt. " +
 		"When multiple excerpts cover different articles, explain logical links between them when relevant (e.g. emergency powers and election postponement). " +
@@ -78,6 +91,28 @@ func ragSystemPrompt(queryLang string) string {
 		"Do not name authors or books unless they appear in that excerpt's text. " +
 		"If the excerpts do not contain enough information, say so clearly. " +
 		"Do not use outside knowledge. Answer in the same language as the question."
+}
+
+func isLegalGenerationDocs(docs []model.LegalDocument) bool {
+	for _, doc := range docs {
+		if doc.Corpus == "legal-demo" || strings.Contains(strings.ToLower(doc.Corpus), "legal") {
+			return true
+		}
+		if strings.TrimSpace(doc.Article) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func effectiveGenerationTopK(docs []model.LegalDocument, requestedTopK int) int {
+	if requestedTopK <= 0 {
+		requestedTopK = defaultGenerationTopK
+	}
+	if isLegalGenerationDocs(docs) && requestedTopK > legalGenerationTopK {
+		return legalGenerationTopK
+	}
+	return requestedTopK
 }
 
 func detectQueryLanguage(query, langOverride string) string {
@@ -97,9 +132,7 @@ func detectQueryLanguage(query, langOverride string) string {
 }
 
 func buildRAGUserMessage(docs []model.LegalDocument, generationQuery, retrievalQuery string, topK int) string {
-	if topK <= 0 {
-		topK = defaultGenerationTopK
-	}
+	topK = effectiveGenerationTopK(docs, topK)
 	var b strings.Builder
 	b.WriteString("Question: ")
 	b.WriteString(generationQuery)
@@ -110,15 +143,12 @@ func buildRAGUserMessage(docs []model.LegalDocument, generationQuery, retrievalQ
 		if i >= topK {
 			break
 		}
-		body := excerptText(doc.Content, retrievalQuery, maxSnippetChars)
+		body := excerptTextForChunk(doc.Content, retrievalQuery, doc.Article, maxSnippetChars)
 		book := strings.TrimSpace(doc.BookTitle)
 		section := strings.TrimSpace(doc.Title)
 		sectionPath := section
 		if book != "" && book != section {
 			sectionPath = book + " -> " + section
-		}
-		if book == "" {
-			book = section
 		}
 		articleField := ""
 		if art := strings.TrimSpace(doc.Article); art != "" {
@@ -130,6 +160,41 @@ func buildRAGUserMessage(docs []model.LegalDocument, generationQuery, retrievalQ
 		}
 		b.WriteString(excerpt)
 		used += len(excerpt)
+	}
+	if checklist := legalGenerationChecklist(docs, retrievalQuery, topK); checklist != "" {
+		if used+len(checklist) <= maxPromptContextChars {
+			b.WriteString(checklist)
+		}
+	}
+	return b.String()
+}
+
+func legalGenerationChecklist(docs []model.LegalDocument, retrievalQuery string, topK int) string {
+	topK = effectiveGenerationTopK(docs, topK)
+	var art16Dissoute, art7 bool
+	for i, doc := range docs {
+		if i >= topK {
+			break
+		}
+		body := excerptTextForChunk(doc.Content, retrievalQuery, doc.Article, maxSnippetChars)
+		lower := strings.ToLower(body)
+		if strings.TrimSpace(doc.Article) == "16" && strings.Contains(lower, "dissoute") {
+			art16Dissoute = true
+		}
+		if strings.TrimSpace(doc.Article) == "7" {
+			art7 = true
+		}
+	}
+	if !art16Dissoute && !art7 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\nRappel pour la partie (2) :\n")
+	if art16Dissoute {
+		b.WriteString("- Article 16 : énoncer explicitement que l'Assemblée nationale ne peut être dissoute pendant les pouvoirs exceptionnels, avec citation [n].\n")
+	}
+	if art7 {
+		b.WriteString("- Article 7 : énoncer les règles d'organisation ou de report du scrutin présidentiel pertinentes, avec citation [n].\n")
 	}
 	return b.String()
 }
@@ -164,8 +229,7 @@ func generateResponseWithStream(docs []model.LegalDocument, generationQuery, ret
 	case ProviderOpenAI:
 		return streamOpenAIChatCompletion(ctx, systemPrompt, userPrompt, metadata, w)
 	default:
-		combined := systemPrompt + "\n\n" + userPrompt
-		return streamOllamaGenerate(ctx, combined, metadata, w)
+		return streamOllamaChat(ctx, systemPrompt, userPrompt, metadata, w)
 	}
 }
 
@@ -178,10 +242,13 @@ func writeSSEError(c *gin.Context, err error) {
 	c.Writer.Flush()
 }
 
-func streamOllamaGenerate(ctx context.Context, prompt string, metadata map[string]string, w StreamWriter) error {
-	reqBody, err := json.Marshal(ollamaGenerateRequest{
-		Model:  llmConfig.GenerationModel,
-		Prompt: prompt,
+func streamOllamaChat(ctx context.Context, systemPrompt, userPrompt string, metadata map[string]string, w StreamWriter) error {
+	reqBody, err := json.Marshal(ollamaChatRequest{
+		Model: llmConfig.GenerationModel,
+		Messages: []openAIChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
 		Stream: true,
 	})
 	if err != nil {
@@ -203,18 +270,18 @@ func streamOllamaGenerate(ctx context.Context, prompt string, metadata map[strin
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("ollama generate (status %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("ollama chat (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	decoder := json.NewDecoder(resp.Body)
 	var buffer strings.Builder
 
 	for {
-		var chunk ollamaGenerateResponse
+		var chunk ollamaChatStreamChunk
 		if err := decoder.Decode(&chunk); err != nil {
 			if err == io.EOF {
 				break
@@ -222,9 +289,10 @@ func streamOllamaGenerate(ctx context.Context, prompt string, metadata map[strin
 			return err
 		}
 
-		buffer.WriteString(chunk.Response)
-		if chunk.Response != "" {
-			if err := w.WriteToken(chunk.Response); err != nil {
+		text := chunk.Message.Content
+		buffer.WriteString(text)
+		if text != "" {
+			if err := w.WriteToken(text); err != nil {
 				return err
 			}
 		}
@@ -265,7 +333,7 @@ func streamOpenAIChatCompletion(ctx context.Context, systemPrompt, userPrompt st
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)

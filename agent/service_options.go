@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"strconv"
 	"strings"
-
 )
 
 // RankOptions holds hybrid retrieval parameters shared by search and retrieve.
@@ -170,35 +168,4 @@ func parseRankOptionsFromParams(retrievalQuery, generationQuery string, params m
 		opts.LegalRerank = parseLegalRerankParam(v)
 	}
 	return opts
-}
-
-func parseParamsText(text string) map[string]string {
-	out := make(map[string]string)
-	scanner := bufio.NewScanner(strings.NewReader(text))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, val, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		out[strings.TrimSpace(key)] = strings.TrimSpace(val)
-	}
-	return out
-}
-
-func formatParamsText(params map[string]string) string {
-	keys := []string{"rq", "retrieval_q", "corpus", "doc_id", "article", "legal_rerank", "rewrite", "hyde", "top_k", "max_per_doc", "bm25_k", "vector_k", "fusion", "min_score", "lang"}
-	var b strings.Builder
-	for _, k := range keys {
-		if v, ok := params[k]; ok && v != "" {
-			b.WriteString(k)
-			b.WriteByte('=')
-			b.WriteString(v)
-			b.WriteByte('\n')
-		}
-	}
-	return b.String()
 }

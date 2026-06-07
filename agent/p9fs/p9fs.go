@@ -52,10 +52,10 @@ func NewFS(svc Service) (*fs.FS, error) {
 	retrieveArea := &opArea{params: make(map[string]string)}
 	searchArea := &opArea{params: make(map[string]string)}
 
-	root.AddChild(fs.NewStaticFile(p9.NewStat("README", "rag", "rag", 0444), []byte(readmeText)))
-	root.AddChild(newCtlFile(p9.NewStat("ctl", "rag", "rag", 0644), svc))
-	root.AddChild(newIngestFile(p9.NewStat("ingest", "rag", "rag", 0644), svc))
-	root.AddChild(fs.NewDynamicFile(p9.NewStat("stats", "rag", "rag", 0444), func() []byte {
+	_ = root.AddChild(fs.NewStaticFile(p9.NewStat("README", "rag", "rag", 0444), []byte(readmeText)))
+	_ = root.AddChild(newCtlFile(p9.NewStat("ctl", "rag", "rag", 0644), svc))
+	_ = root.AddChild(newIngestFile(p9.NewStat("ingest", "rag", "rag", 0644), svc))
+	_ = root.AddChild(fs.NewDynamicFile(p9.NewStat("stats", "rag", "rag", 0444), func() []byte {
 		data, err := svc.StatsJSON()
 		if err != nil {
 			return []byte("error: " + err.Error() + "\n")
@@ -64,20 +64,20 @@ func NewFS(svc Service) (*fs.FS, error) {
 	}))
 
 	retrieveDir := fs.NewStaticDir(p9.NewStat("retrieve", "rag", "rag", 0555|proto.DMDIR))
-	retrieveDir.AddChild(newQueryCtlFile(p9.NewStat("ctl", "rag", "rag", 0644), retrieveArea))
-	retrieveDir.AddChild(newParamsFile(p9.NewStat("params", "rag", "rag", 0644), retrieveArea))
-	retrieveDir.AddChild(newRetrieveDataFile(p9.NewStat("data", "rag", "rag", 0444), retrieveArea, svc))
-	root.AddChild(retrieveDir)
+	_ = retrieveDir.AddChild(newQueryCtlFile(p9.NewStat("ctl", "rag", "rag", 0644), retrieveArea))
+	_ = retrieveDir.AddChild(newParamsFile(p9.NewStat("params", "rag", "rag", 0644), retrieveArea))
+	_ = retrieveDir.AddChild(newRetrieveDataFile(p9.NewStat("data", "rag", "rag", 0444), retrieveArea, svc))
+	_ = root.AddChild(retrieveDir)
 
 	searchDir := fs.NewStaticDir(p9.NewStat("search", "rag", "rag", 0555|proto.DMDIR))
-	searchDir.AddChild(newQueryCtlFile(p9.NewStat("ctl", "rag", "rag", 0644), searchArea))
-	searchDir.AddChild(newParamsFile(p9.NewStat("params", "rag", "rag", 0644), searchArea))
-	searchDir.AddChild(newSearchDataFile(p9.NewStat("data", "rag", "rag", 0444), searchArea, svc))
-	searchDir.AddChild(newSearchMetaFile(p9.NewStat("metadata", "rag", "rag", 0444), searchArea, svc))
-	root.AddChild(searchDir)
+	_ = searchDir.AddChild(newQueryCtlFile(p9.NewStat("ctl", "rag", "rag", 0644), searchArea))
+	_ = searchDir.AddChild(newParamsFile(p9.NewStat("params", "rag", "rag", 0644), searchArea))
+	_ = searchDir.AddChild(newSearchDataFile(p9.NewStat("data", "rag", "rag", 0444), searchArea, svc))
+	_ = searchDir.AddChild(newSearchMetaFile(p9.NewStat("metadata", "rag", "rag", 0444), searchArea, svc))
+	_ = root.AddChild(searchDir)
 
 	documentsDir := fs.NewStaticDir(p9.NewStat("documents", "rag", "rag", 0777|proto.DMDIR))
-	root.AddChild(documentsDir)
+	_ = root.AddChild(documentsDir)
 
 	return p9, nil
 }
@@ -122,7 +122,7 @@ func Serve(addr string, svc Service) error {
 				return
 			}
 			go func(c net.Conn) {
-				defer c.Close()
+				defer func() { _ = c.Close() }()
 				read := bufio.NewReader(c)
 				if err := go9p.ServeReadWriter(read, c, srv); err != nil {
 					log.Printf("9p session error: %v", err)

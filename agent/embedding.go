@@ -128,7 +128,7 @@ func postLLM(endpoint string, reqBody []byte) ([]byte, int, error) {
 	if err != nil {
 		return nil, 0, fmt.Errorf("erreur lors de l'appel au service LLM: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

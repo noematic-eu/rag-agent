@@ -30,7 +30,7 @@ func defaultLLMConfig() LLMConfig {
 	return LLMConfig{
 		Provider:          ProviderOllama,
 		BaseURL:           "http://localhost:11434",
-		GenerationModel:   "qwq",
+		GenerationModel:   "qwen2.5:7b-instruct",
 		EmbeddingModel:    "nomic-embed-text",
 		EmbeddingsEnabled: true,
 	}
@@ -113,7 +113,7 @@ func (c LLMConfig) generationEndpoint() string {
 	case ProviderOpenAI:
 		return c.BaseURL + "/chat/completions"
 	default:
-		return c.BaseURL + "/api/generate"
+		return c.BaseURL + "/api/chat"
 	}
 }
 
@@ -122,6 +122,6 @@ func (c LLMConfig) embeddingsEndpoint() string {
 	case ProviderOpenAI:
 		return c.BaseURL + "/embeddings"
 	default:
-		return c.BaseURL + "/api/embeddings"
+		return c.BaseURL + "/api/embed"
 	}
 }

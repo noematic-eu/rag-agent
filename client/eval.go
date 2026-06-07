@@ -19,12 +19,14 @@ type GoldCase struct {
 	Corpus           string   `json:"corpus,omitempty"`
 	RetrievalQ       string   `json:"retrieval_q"`
 	GenerationQ      string   `json:"generation_q,omitempty"`
-	ExpectedChunkIDs   []string `json:"expected_chunk_ids,omitempty"`
-	ExpectedDocIDs     []string `json:"expected_doc_ids,omitempty"`
-	ExpectedSections   []string `json:"expected_sections,omitempty"`
-	MatchAllSections   bool     `json:"match_all_sections,omitempty"`
-	ReferenceAnswer    string   `json:"reference_answer,omitempty"`
-	ExpectNoResults    bool     `json:"expect_no_results,omitempty"`
+	ExpectedChunkIDs []string `json:"expected_chunk_ids,omitempty"`
+	ExpectedDocIDs   []string `json:"expected_doc_ids,omitempty"`
+	ExpectedSections     []string            `json:"expected_sections,omitempty"`
+	MatchAllSections     bool                `json:"match_all_sections,omitempty"`
+	ExcerptTermsBySection map[string][]string `json:"excerpt_terms_by_section,omitempty"`
+	GenerationPhrases   []string            `json:"generation_phrases,omitempty"`
+	ReferenceAnswer      string              `json:"reference_answer,omitempty"`
+	ExpectNoResults  bool     `json:"expect_no_results,omitempty"`
 }
 
 type retrievalEvalConfig struct {
@@ -61,6 +63,7 @@ type retrieveHit struct {
 	Score   float64 `json:"score"`
 	Section string  `json:"section,omitempty"`
 	Article string  `json:"article,omitempty"`
+	Excerpt string  `json:"excerpt,omitempty"`
 }
 
 type retrieveAPIResponse struct {
@@ -143,12 +146,184 @@ func RunRetrievalEval(cfg retrievalEvalConfig) error {
 	return nil
 }
 
+type excerptEvalConfig struct {
+	ServerURL  string
+	GoldPath   string
+	TopK       int
+	MinPass    float64
+	OutputJSON string
+	SetName    string
+}
+
+type excerptEvalReport struct {
+	Set       string           `json:"set"`
+	Server    string           `json:"server"`
+	TopK      int              `json:"top_k"`
+	Cases     int              `json:"cases"`
+	PassRate  float64          `json:"pass_rate"`
+	PerCase   []excerptCaseRow `json:"per_case"`
+}
+
+type excerptCaseRow struct {
+	ID     string   `json:"id"`
+	Pass   bool     `json:"pass"`
+	Missed []string `json:"missed,omitempty"`
+}
+
+func RunExcerptEval(cfg excerptEvalConfig) error {
+	cases, err := loadGoldCases(cfg.GoldPath)
+	if err != nil {
+		return err
+	}
+	excerptCases := make([]GoldCase, 0, len(cases))
+	for _, gc := range cases {
+		if len(gc.ExcerptTermsBySection) > 0 {
+			excerptCases = append(excerptCases, gc)
+		}
+	}
+	if len(excerptCases) == 0 {
+		return fmt.Errorf("no gold cases with excerpt_terms_by_section in %s", cfg.GoldPath)
+	}
+	if cfg.TopK <= 0 {
+		cfg.TopK = 8
+	}
+
+	client := &http.Client{Timeout: 2 * time.Minute}
+	rows := make([]excerptCaseRow, 0, len(excerptCases))
+	var passSum float64
+
+	for _, gc := range excerptCases {
+		hits, _, err := callRetrieveWithExcerpts(client, cfg.ServerURL, gc, cfg.TopK)
+		if err != nil {
+			return fmt.Errorf("%s: %w", gc.ID, err)
+		}
+		pass, missed := scoreExcerptTerms(gc, hits, cfg.TopK)
+		rows = append(rows, excerptCaseRow{ID: gc.ID, Pass: pass, Missed: missed})
+		if pass {
+			passSum++
+		}
+	}
+
+	n := float64(len(excerptCases))
+	report := excerptEvalReport{
+		Set:      cfg.SetName,
+		Server:   cfg.ServerURL,
+		TopK:     cfg.TopK,
+		Cases:    len(excerptCases),
+		PassRate: passSum / n,
+		PerCase:  rows,
+	}
+
+	if cfg.OutputJSON != "" {
+		if err := writeExcerptJSONReport(cfg.OutputJSON, report); err != nil {
+			return err
+		}
+	}
+
+	printExcerptSummary(report)
+	if cfg.MinPass > 0 && report.PassRate < cfg.MinPass {
+		return fmt.Errorf("excerpt pass rate %.3f below threshold %.3f", report.PassRate, cfg.MinPass)
+	}
+	return nil
+}
+
+func callRetrieveWithExcerpts(client *http.Client, server string, gc GoldCase, topK int) ([]retrieveHit, string, error) {
+	params := url.Values{}
+	if gc.RetrievalQ != "" {
+		params.Set("rq", gc.RetrievalQ)
+	} else {
+		params.Set("q", gc.GenerationQ)
+		params.Set("rewrite", "true")
+	}
+	params.Set("top_k", fmt.Sprintf("%d", topK))
+	params.Set("include_text", "1")
+	if gc.Corpus != "" {
+		params.Set("corpus", gc.Corpus)
+	}
+
+	u := strings.TrimRight(server, "/") + "/retrieve?" + params.Encode()
+	resp, err := client.Get(u)
+	if err != nil {
+		return nil, "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var parsed retrieveAPIResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, "", err
+	}
+	return parsed.Hits, parsed.Status, nil
+}
+
+func scoreExcerptTerms(gc GoldCase, hits []retrieveHit, topK int) (pass bool, missed []string) {
+	for section, terms := range gc.ExcerptTermsBySection {
+		excerpt := excerptForSection(hits, section, topK)
+		if excerpt == "" {
+			missed = append(missed, section+": no excerpt")
+			continue
+		}
+		lower := strings.ToLower(excerpt)
+		for _, term := range terms {
+			if !strings.Contains(lower, strings.ToLower(term)) {
+				missed = append(missed, section+": missing "+term)
+			}
+		}
+	}
+	return len(missed) == 0, missed
+}
+
+func excerptForSection(hits []retrieveHit, want string, topK int) string {
+	for rank, h := range hits {
+		if rank >= topK {
+			break
+		}
+		if sectionMatches(h, want) {
+			return h.Excerpt
+		}
+	}
+	return ""
+}
+
+func writeExcerptJSONReport(path string, report excerptEvalReport) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func printExcerptSummary(r excerptEvalReport) {
+	fmt.Printf("set=%s excerpt_cases=%d pass_rate=%.3f\n", r.Set, r.Cases, r.PassRate)
+	for _, row := range r.PerCase {
+		mark := "FAIL"
+		if row.Pass {
+			mark = "PASS"
+		}
+		fmt.Printf("  %s %s", row.ID, mark)
+		if len(row.Missed) > 0 {
+			fmt.Printf(" missed=%v", row.Missed)
+		}
+		fmt.Println()
+	}
+}
+
 func loadGoldCases(path string) ([]GoldCase, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var cases []GoldCase
 	sc := bufio.NewScanner(f)
@@ -187,7 +362,7 @@ func callRetrieve(client *http.Client, server string, gc GoldCase, topK int) ([]
 	if err != nil {
 		return nil, "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -313,5 +488,146 @@ func printRetrievalSummary(r retrievalEvalReport) {
 			mark = "HIT"
 		}
 		fmt.Printf("  %s %s rr=%.3f retrieved=%d\n", row.ID, mark, row.Reciprocal, row.Retrieved)
+	}
+}
+
+type generationEvalConfig struct {
+	ServerURL  string
+	GoldPath   string
+	MinPass    float64
+	OutputJSON string
+	SetName    string
+}
+
+type generationEvalReport struct {
+	Set      string              `json:"set"`
+	Server   string              `json:"server"`
+	Cases    int                 `json:"cases"`
+	PassRate float64             `json:"pass_rate"`
+	PerCase  []generationCaseRow `json:"per_case"`
+}
+
+type generationCaseRow struct {
+	ID     string   `json:"id"`
+	Pass   bool     `json:"pass"`
+	Missed []string `json:"missed,omitempty"`
+}
+
+func RunGenerationEval(cfg generationEvalConfig) error {
+	cases, err := loadGoldCases(cfg.GoldPath)
+	if err != nil {
+		return err
+	}
+	genCases := make([]GoldCase, 0, len(cases))
+	for _, gc := range cases {
+		if len(gc.GenerationPhrases) > 0 && gc.GenerationQ != "" {
+			genCases = append(genCases, gc)
+		}
+	}
+	if len(genCases) == 0 {
+		return fmt.Errorf("no gold cases with generation_phrases and generation_q in %s", cfg.GoldPath)
+	}
+
+	client := &http.Client{Timeout: 5 * time.Minute}
+	rows := make([]generationCaseRow, 0, len(genCases))
+	var passSum float64
+
+	for _, gc := range genCases {
+		answer, err := callSearch(client, cfg.ServerURL, gc)
+		if err != nil {
+			return fmt.Errorf("%s: %w", gc.ID, err)
+		}
+		pass, missed := scoreGenerationPhrases(gc, answer)
+		rows = append(rows, generationCaseRow{ID: gc.ID, Pass: pass, Missed: missed})
+		if pass {
+			passSum++
+		}
+	}
+
+	n := float64(len(genCases))
+	report := generationEvalReport{
+		Set:      cfg.SetName,
+		Server:   cfg.ServerURL,
+		Cases:    len(genCases),
+		PassRate: passSum / n,
+		PerCase:  rows,
+	}
+
+	if cfg.OutputJSON != "" {
+		if err := writeGenerationJSONReport(cfg.OutputJSON, report); err != nil {
+			return err
+		}
+	}
+
+	printGenerationSummary(report)
+	if cfg.MinPass > 0 && report.PassRate < cfg.MinPass {
+		return fmt.Errorf("generation pass rate %.3f below threshold %.3f", report.PassRate, cfg.MinPass)
+	}
+	return nil
+}
+
+func callSearch(client *http.Client, server string, gc GoldCase) (string, error) {
+	params := url.Values{}
+	params.Set("q", gc.GenerationQ)
+	if gc.RetrievalQ != "" {
+		params.Set("rq", gc.RetrievalQ)
+	}
+	params.Set("rewrite", "true")
+	if gc.Corpus != "" {
+		params.Set("corpus", gc.Corpus)
+	}
+
+	u := strings.TrimRight(server, "/") + "/search?" + params.Encode()
+	resp, err := client.Get(u)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	complete, _ := parseBenchSSE(string(body))
+	return complete.Response, nil
+}
+
+func scoreGenerationPhrases(gc GoldCase, answer string) (pass bool, missed []string) {
+	lower := strings.ToLower(answer)
+	for _, phrase := range gc.GenerationPhrases {
+		if !strings.Contains(lower, strings.ToLower(phrase)) {
+			missed = append(missed, phrase)
+		}
+	}
+	return len(missed) == 0, missed
+}
+
+func writeGenerationJSONReport(path string, report generationEvalReport) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func printGenerationSummary(r generationEvalReport) {
+	fmt.Printf("set=%s generation_cases=%d pass_rate=%.3f\n", r.Set, r.Cases, r.PassRate)
+	for _, row := range r.PerCase {
+		mark := "FAIL"
+		if row.Pass {
+			mark = "PASS"
+		}
+		fmt.Printf("  %s %s", row.ID, mark)
+		if len(row.Missed) > 0 {
+			fmt.Printf(" missed=%v", row.Missed)
+		}
+		fmt.Println()
 	}
 }

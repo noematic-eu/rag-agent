@@ -9,9 +9,9 @@ const (
 
 // BM25Global holds corpus-level stats for RAM BM25.
 type BM25Global struct {
-	N    int
+	N     int
 	AvgDL float64
-	DF   map[string]int
+	DF    map[string]int
 }
 
 // BM25Chunk holds per-chunk term stats per field.

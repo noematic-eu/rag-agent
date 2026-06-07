@@ -88,13 +88,13 @@ func TestTFIDFCalculation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-tfidf-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	documentTFIDFs = make([]DocumentTFIDF, 0)

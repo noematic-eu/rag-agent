@@ -51,7 +51,7 @@ func searchDocuments(c *gin.Context) {
 	lang := strings.TrimSpace(c.Query("lang"))
 	retrievalForPrompt := retrievalText
 	if retrievalForPrompt == "" && len(rewriteQueries) > 0 {
-		retrievalForPrompt = rewriteQueries[0]
+		retrievalForPrompt = strings.Join(rewriteQueries, " ")
 	}
 	if err := generateResponseWithLLM(docs, generationText, retrievalForPrompt, lang, p.topKFinal, rewriteQueries, c); err != nil {
 		if c.Writer.Written() {

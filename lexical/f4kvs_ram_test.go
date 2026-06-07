@@ -31,7 +31,7 @@ func TestF4KVSRamBM25(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	hits, err := b.Search("natural selection", "c1", 5)
 	if err != nil {

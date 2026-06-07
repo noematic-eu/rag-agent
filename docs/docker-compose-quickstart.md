@@ -27,9 +27,11 @@ docker compose up -d --build
 ## 2) Pull required models in Ollama
 
 ```bash
-docker exec rag-agent-ollama ollama pull qwq
+docker exec rag-agent-ollama ollama pull qwen2.5:7b-instruct
 docker exec rag-agent-ollama ollama pull nomic-embed-text
 ```
+
+For query rewrite / HyDE experiments you may optionally pull a reasoning model (e.g. `qwq`), but use an instruct model for `/search` answers.
 
 ## 3) Smoke test API
 

@@ -559,7 +559,7 @@ func ConstitionFrancaise() {
 		}
 	}
 
-	client.Finalize()
+	_ = client.Finalize()
 
 	// Exemple de recherche avec streaming
 	err := client.Search("comment se déroule l'entrée en guerre de la France?")

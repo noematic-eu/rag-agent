@@ -5,11 +5,6 @@ import (
 	"unicode"
 )
 
-var legalInstitutionTerms = []string{
-	"president", "parlement", "gouvernement", "conseil", "constitutionnel",
-	"senat", "depute", "ministre", "premier",
-}
-
 var legalAbstractIntentTerms = []string{
 	"obligations", "obligation", "devoirs", "devoir", "role", "fonction",
 	"pouvoirs", "pouvoir", "garant", "competences", "competence", "mission",
@@ -18,6 +13,11 @@ var legalAbstractIntentTerms = []string{
 
 var legalElectionTerms = []string{
 	"election", "scrutin", "suffrage", "candidat", "mandat", "report", "prorogation",
+}
+
+var legalEmergencyTerms = []string{
+	"urgence", "urgent", "emergency", "exceptionnel", "exceptionnelle", "exceptionnels",
+	"exceptionnelles", "crise", "menace", "grave", "immediat", "immediate",
 }
 
 func foldLegalAccent(r rune) rune {
@@ -82,12 +82,27 @@ func expandLegalQuery(query string) []string {
 	hasPresident := terms["president"] || terms["presidente"] || terms["presidentielle"]
 	hasAbstract := hasAnyTerm(terms, legalAbstractIntentTerms)
 	hasElection := hasAnyTerm(terms, legalElectionTerms)
+	hasEmergency := hasAnyTerm(terms, legalEmergencyTerms) ||
+		(terms["emergency"] && (terms["powers"] || terms["power"]))
 
+	hasArticleOne := terms["premier"] || terms["1"] ||
+		strings.Contains(strings.ToLower(query), "article 1") ||
+		strings.Contains(strings.ToLower(query), "article premier")
+	hasRepublique := terms["republique"] || terms["republic"]
+	if hasArticleOne && hasRepublique {
+		out = append(out, query+" article premier republique indivisible laicite democratique sociale")
+	}
 	if hasPresident && hasAbstract && !hasElection {
 		out = append(out, query+" article 5 veille constitution arbitrage continuite garant independance traites")
 	}
 	if hasPresident && hasElection {
 		out = append(out, query+" article 7 election presidentielle scrutin organisation")
+	}
+	if hasEmergency || (hasAbstract && hasAnyTerm(terms, legalEmergencyTerms)) {
+		out = append(out, query+" article 16 pouvoirs exceptionnels mesures exigees institutions republique continuite dissoute")
+	}
+	if hasEmergency && (hasPresident || hasElection) {
+		out = append(out, query+" article 7 report election presidentielle conseil constitutionnel scrutin")
 	}
 	if terms["parlement"] && hasAbstract {
 		out = append(out, query+" article 24 parlement loi controle gouvernement")

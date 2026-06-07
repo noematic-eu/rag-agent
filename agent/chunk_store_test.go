@@ -13,7 +13,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	store, err := f4kvs.Open(tempDir)
 	if err != nil {

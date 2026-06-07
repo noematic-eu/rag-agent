@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	resultSuccess          = C.F4KVS_SUCCESS
-	resultInvalidArgument  = C.F4KVS_ERROR_INVALID_ARGUMENT
-	resultNotFound         = C.F4KVS_ERROR_NOT_FOUND
-	resultStorage          = C.F4KVS_ERROR_STORAGE
+	resultSuccess         = C.F4KVS_SUCCESS
+	resultInvalidArgument = C.F4KVS_ERROR_INVALID_ARGUMENT
+	resultNotFound        = C.F4KVS_ERROR_NOT_FOUND
+	resultStorage         = C.F4KVS_ERROR_STORAGE
 )
 
 var (

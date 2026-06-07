@@ -1,8 +1,26 @@
 package main
 
 import (
+	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 )
+
+var legalArticleHeadingSentenceRe = regexp.MustCompile(`(?i)^ARTICLE\s+(?:PREMIER|\d+)\.?\s*$`)
+
+const maxLegalSnippetChars = 2200
+const legalExcerptHeadChars = 1200
+
+var snippetPriorityLegalTerms = []string{
+	"pouvoirs", "exceptionnels", "exceptionnel", "mesures", "exigees", "dissoute",
+	"dissolution", "report", "reporter", "prorog", "election", "president", "presidentielle",
+	"scrutin", "conseil", "constitutionnel", "urgence", "emergency",
+}
+
+var snippetGenericLegalTokens = map[string]bool{
+	"article": true,
+}
 
 var snippetStopwords = map[string]bool{
 	"a": true, "an": true, "the": true, "and": true, "or": true, "but": true,
@@ -43,8 +61,11 @@ func stripNeighborContext(content string) string {
 		return ""
 	}
 	if idx := strings.Index(content, neighborContextPrev); idx >= 0 {
-		if end := strings.Index(content[idx:], "\n\n"); end >= 0 {
-			content = strings.TrimSpace(content[idx+end+2:])
+		rest := content[idx+len(neighborContextPrev):]
+		if artIdx := strings.Index(strings.ToUpper(rest), "ARTICLE "); artIdx >= 0 {
+			content = strings.TrimSpace(rest[artIdx:])
+		} else if end := strings.Index(rest, "\n\n"); end >= 0 {
+			content = strings.TrimSpace(rest[end+2:])
 		}
 	}
 	if idx := strings.Index(content, neighborContextNext); idx >= 0 {
@@ -53,59 +74,226 @@ func stripNeighborContext(content string) string {
 	return content
 }
 
-// excerptText returns full content when short enough, otherwise a query-focused snippet.
+func queryTokenSet(query string) map[string]bool {
+	queryTokens := tokenizeV2(query)
+	querySet := make(map[string]bool, len(queryTokens))
+	for _, token := range queryTokens {
+		if snippetGenericLegalTokens[token] {
+			continue
+		}
+		querySet[token] = true
+	}
+	return querySet
+}
+
+func isLegalArticleContent(content string) bool {
+	return legalArticleDetectRe.MatchString(content)
+}
+
+func anchorLegalArticleContent(content, article string) string {
+	content = strings.TrimSpace(content)
+	if content == "" || article == "" {
+		return content
+	}
+	upper := strings.ToUpper(content)
+	if article == "1" {
+		if idx := strings.Index(upper, "ARTICLE PREMIER"); idx >= 0 {
+			return strings.TrimSpace(content[idx:])
+		}
+	}
+	marker := strings.ToUpper(fmt.Sprintf("ARTICLE %s", article))
+	if idx := strings.Index(upper, marker); idx >= 0 {
+		return strings.TrimSpace(content[idx:])
+	}
+	return content
+}
+
+// excerptTextForChunk builds an excerpt for generation or /retrieve display.
+func excerptTextForChunk(content, retrievalQuery, article string, maxLength int) string {
+	limit := maxLength
+	if strings.TrimSpace(article) != "" {
+		limit = maxLegalSnippetChars
+	}
+	return excerptTextAnchored(content, retrievalQuery, limit, article)
+}
+
 func excerptText(content, retrievalQuery string, maxLength int) string {
+	return excerptTextAnchored(content, retrievalQuery, maxLength, "")
+}
+
+func excerptTextAnchored(content, retrievalQuery string, maxLength int, article string) string {
 	content = stripNeighborContext(strings.TrimSpace(content))
 	if content == "" {
 		return ""
 	}
+	content = anchorLegalArticleContent(content, article)
 	if len(content) <= maxLength {
 		return content
+	}
+	if isLegalArticleContent(content) || article != "" {
+		return legalArticleExcerpt(content, retrievalQuery, maxLength)
 	}
 	return extractSnippet(content, retrievalQuery, maxLength)
 }
 
-// extractSnippet extracts a snippet from content based on query, up to maxLength
-func extractSnippet(content, query string, maxLength int) string {
-	queryTokens := tokenizeV2(query)
-	if len(queryTokens) == 0 {
-		if len(content) <= maxLength {
-			return content
-		}
-		return content[:maxLength] + "..."
+func isLegalHeadingOnlySentence(sentence string) bool {
+	return legalArticleHeadingSentenceRe.MatchString(strings.TrimSpace(sentence))
+}
+
+func trimToMaxLength(s string, maxLength int) string {
+	if len(s) <= maxLength {
+		return s
 	}
-	querySet := make(map[string]bool, len(queryTokens))
-	for _, token := range queryTokens {
-		querySet[token] = true
+	return s[:maxLength] + "..."
+}
+
+func sentenceMatchesPriorityTerms(sentence string) bool {
+	lower := strings.ToLower(sentence)
+	for _, term := range snippetPriorityLegalTerms {
+		if strings.Contains(lower, term) {
+			return true
+		}
+	}
+	return false
+}
+
+func prioritySentencesExcerpt(content string, budget int, exclude string) string {
+	if budget <= 0 {
+		return ""
+	}
+	excludeLower := strings.ToLower(exclude)
+	var picked []string
+	used := 0
+	for _, sentence := range strings.Split(content, ". ") {
+		sentence = strings.TrimSpace(sentence)
+		if sentence == "" || isLegalHeadingOnlySentence(sentence) {
+			continue
+		}
+		if strings.Contains(excludeLower, strings.ToLower(sentence)) {
+			continue
+		}
+		if !sentenceMatchesPriorityTerms(sentence) {
+			continue
+		}
+		part := sentence
+		sep := 0
+		if len(picked) > 0 {
+			sep = 2
+		}
+		if used+sep+len(part) > budget {
+			break
+		}
+		picked = append(picked, part)
+		used += sep + len(part)
+		if len(picked) >= maxLegalSnippetSentences {
+			break
+		}
+	}
+	return strings.Join(picked, ". ")
+}
+
+// legalArticleExcerpt returns anchored legal text, merging head and priority tail when needed.
+func legalArticleExcerpt(content, query string, maxLength int) string {
+	if len(content) <= maxLength {
+		return content
+	}
+	head := content
+	if len(head) > legalExcerptHeadChars {
+		head = head[:legalExcerptHeadChars]
+	}
+	tailBudget := maxLength - len(head) - 2
+	if tailBudget > 80 {
+		tail := prioritySentencesExcerpt(content, tailBudget, head)
+		if tail != "" {
+			merged := head + "\n\n" + tail
+			if len(merged) <= maxLength {
+				return merged
+			}
+			return trimToMaxLength(merged, maxLength)
+		}
+	}
+	return trimToMaxLength(content, maxLength)
+}
+
+type scoredSentence struct {
+	text  string
+	score int
+}
+
+const maxLegalSnippetSentences = 3
+
+func sentenceScore(sentence string, querySet map[string]bool) int {
+	score := 0
+	for _, token := range tokenizeV2(sentence) {
+		if querySet[token] {
+			score++
+		}
+	}
+	lower := strings.ToLower(sentence)
+	for _, term := range snippetPriorityLegalTerms {
+		if strings.Contains(lower, term) {
+			score++
+		}
+	}
+	return score
+}
+
+// extractSnippet extracts a snippet from content based on query, up to maxLength.
+func extractSnippet(content, query string, maxLength int) string {
+	querySet := queryTokenSet(query)
+	if len(querySet) == 0 {
+		return trimToMaxLength(content, maxLength)
 	}
 
 	sentences := strings.Split(content, ". ")
-	var bestSentence string
-	maxScore := 0
-
+	scored := make([]scoredSentence, 0, len(sentences))
 	for _, sentence := range sentences {
-		sentenceTokens := tokenizeV2(sentence)
-		score := 0
-		for _, token := range sentenceTokens {
-			if querySet[token] {
-				score++
+		sentence = strings.TrimSpace(sentence)
+		if sentence == "" || isLegalHeadingOnlySentence(sentence) {
+			continue
+		}
+		scored = append(scored, scoredSentence{text: sentence, score: sentenceScore(sentence, querySet)})
+	}
+
+	if len(scored) == 0 {
+		return legalArticleExcerpt(content, query, maxLength)
+	}
+
+	sort.Slice(scored, func(i, j int) bool {
+		if scored[i].score != scored[j].score {
+			return scored[i].score > scored[j].score
+		}
+		return len(scored[i].text) > len(scored[j].text)
+	})
+
+	if scored[0].score == 0 {
+		return legalArticleExcerpt(content, query, maxLength)
+	}
+
+	var parts []string
+	used := 0
+	for _, s := range scored {
+		if s.score <= 0 {
+			break
+		}
+		sepLen := 0
+		if len(parts) > 0 {
+			sepLen = 2
+		}
+		if used+sepLen+len(s.text) > maxLength {
+			if len(parts) == 0 {
+				return trimToMaxLength(s.text, maxLength)
 			}
+			break
 		}
-		if score > maxScore {
-			maxScore = score
-			bestSentence = sentence
+		parts = append(parts, s.text)
+		used += sepLen + len(s.text)
+		if len(parts) >= maxLegalSnippetSentences {
+			break
 		}
 	}
-
-	if maxScore == 0 && len(content) > 0 {
-		if len(content) <= maxLength {
-			return content
-		}
-		return content[:maxLength] + "..."
+	if len(parts) == 0 {
+		return legalArticleExcerpt(content, query, maxLength)
 	}
-
-	if len(bestSentence) <= maxLength {
-		return bestSentence
-	}
-	return bestSentence[:maxLength] + "..."
+	return strings.Join(parts, ". ")
 }

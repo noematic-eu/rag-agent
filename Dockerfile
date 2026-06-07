@@ -34,7 +34,7 @@ RUN CGO_ENABLED=1 go build -o /src/bin/agent ./agent
 ENV RAG_LISTEN=:8080
 ENV RAG_LLM_PROVIDER=ollama
 ENV RAG_LLM_BASE_URL=http://ollama:11434
-ENV RAG_LLM_MODEL=qwq
+ENV RAG_LLM_MODEL=qwen2.5:7b-instruct
 ENV RAG_EMBEDDING_MODEL=nomic-embed-text
 ENV RAG_DATA_DIR=/data
 

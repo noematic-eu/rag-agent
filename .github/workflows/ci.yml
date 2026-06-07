@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Format check
+        run: make fmt-check
+
+      - name: Vet and test (no f4kvs)
+        run: make vet test-lite
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.12.2
+
+      - name: Build client
+        run: go build -o /dev/null ./client
+
+  build-and-test:
+    if: ${{ secrets.F4KVS_REPO_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Clone f4kvs-v2
+        env:
+          F4KVS_REPO_TOKEN: ${{ secrets.F4KVS_REPO_TOKEN }}
+        run: |
+          git clone "https://oauth2:${F4KVS_REPO_TOKEN}@git.noematic.eu/f4kvs-org/f4kvs-v2.git" "$GITHUB_WORKSPACE/f4kvs-v2"
+
+      - name: Build and test
+        env:
+          F4KVS_ROOT: ${{ github.workspace }}/f4kvs-v2
+        run: make f4kvs tantivy build test
+
+      - name: Build agent binary
+        env:
+          F4KVS_ROOT: ${{ github.workspace }}/f4kvs-v2
+        run: make agent

@@ -8,6 +8,27 @@ A lightweight Retrieval-Augmented Generation (RAG) service in Go with:
 - Hybrid retrieval (BM25 + vector embeddings)
 - Chunk persistence in f4kvs (embedded via cgo) and pluggable lexical indexing (Bleve, Tantivy, or in-memory BM25 over chunks)
 
+## Table of contents
+
+- [Clone](#clone)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [f4kvs-v2 access](#f4kvs-v2-access)
+- [Build](#build)
+- [Quick start for evaluators](#quick-start-for-evaluators)
+- [Release artifacts](#release-artifacts)
+- [Docker Compose](#docker-compose)
+- [Run the API server](#run-the-api-server)
+- [Ingest API Contract](#ingest-api-contract)
+- [Directory Ingestion CLI](#directory-ingestion-cli)
+- [Search](#search)
+- [Development](#development)
+- [Storage maintenance](#storage-maintenance)
+- [Migrating from Badger](#migrating-from-badger)
+- [Current Notes](#current-notes)
+
+Further reading: [`CONTRIBUTING.md`](CONTRIBUTING.md) (contributor setup, CI) · [`docs/README.md`](docs/README.md) (guides index)
+
 ## Clone
 
 ```bash
@@ -47,6 +68,15 @@ Chunk storage requires the **f4kvs-v2** Rust library, hosted separately at `http
 
 Once the f4kvs FFI library is built, Bleve and Tantivy lexical engines work as documented below.
 
+### Without f4kvs access
+
+You can still work on much of the codebase without the native library:
+
+- **Build and test** (no CGO): `./client`, `./lexical`, `./agent/p9fs`, `./model`
+- **Quality checks**: `make check` (format, vet, lint, and `test-lite` — no f4kvs required)
+
+The API server and full test suite require f4kvs: run `make f4kvs` before `./bin/agent` or `make test`.
+
 ## Build
 
 Build the f4kvs FFI library and Go binaries:
@@ -55,6 +85,19 @@ Build the f4kvs FFI library and Go binaries:
 make f4kvs    # builds libf4kvs_ffi into ./lib
 make tantivy  # builds libtantivy_go into ./lib (from github.com/anyproto/tantivy-go)
 make agent    # builds ./bin/agent (CGO + -tags tantivy)
+```
+
+Override the f4kvs source tree if needed:
+
+```bash
+make f4kvs F4KVS_ROOT=/path/to/f4kvs-v2
+```
+
+Build the CLI client only (no f4kvs, no CGO):
+
+```bash
+make client
+# or: go build -o bin/client ./client
 ```
 
 ## Quick start for evaluators
@@ -96,29 +139,9 @@ docker compose up -d --build
 
 Quickstart and smoke-test commands: [`docs/docker-compose-quickstart.md`](docs/docker-compose-quickstart.md).
 
-
-Override the f4kvs source tree if needed:
-
-```bash
-make f4kvs F4KVS_ROOT=/path/to/f4kvs-v2
-```
-
-Run the API server (requires `./lib/libf4kvs_ffi.dylib` or `.so` on `LD_LIBRARY_PATH` / rpath):
-
-```bash
-make agent
-./bin/agent
-```
-
-Or without Make:
-
-```bash
-CGO_ENABLED=1 go run ./agent
-```
-
 ## Run the API server
 
-From repository root (Ollama defaults):
+Requires a built agent (see [Build](#build)). From repository root with Ollama defaults:
 
 ```bash
 go run ./agent
@@ -516,24 +539,26 @@ curl "http://localhost:8080/stats"
 
 ## Development
 
-Run tests (requires f4kvs library in `./lib`):
+Quick quality gate (no f4kvs required):
 
 ```bash
-make test
+make check    # fmt-check + vet + lint + test-lite
+make fmt      # format all Go packages
 ```
 
-Or:
+Full test suite (requires f4kvs in `./lib`):
 
 ```bash
-make f4kvs
-CGO_ENABLED=1 go test ./...
+make f4kvs && make test
 ```
 
-Format code:
+Install [golangci-lint](https://golangci-lint.run/) v2+ locally for `make lint` / `make check`:
 
 ```bash
-gofmt -w ./agent ./client ./model
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 ```
+
+Contributor setup, Makefile targets, and CI secrets: [`CONTRIBUTING.md`](CONTRIBUTING.md). Guides index: [`docs/README.md`](docs/README.md).
 
 ## Storage maintenance
 

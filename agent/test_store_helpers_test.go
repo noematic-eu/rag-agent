@@ -41,22 +41,6 @@ func setupTestDatabases(t *testing.T, bleveDir, chunkStoreDir string) {
 	globalIDF = make(map[string]float64)
 }
 
-func setupTestChunkStore(t *testing.T, chunkStoreDir string) {
-	t.Helper()
-
-	store, err := f4kvs.Open(chunkStoreDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	chunkStore = &f4kvsChunkStore{store: store}
-	t.Cleanup(func() {
-		if chunkStore != nil {
-			_ = chunkStore.Close()
-			chunkStore = nil
-		}
-	})
-}
-
 func firstStoredChunk(t *testing.T) model.Chunk {
 	t.Helper()
 

@@ -17,6 +17,6 @@ func sseMessage(c *gin.Context, text string) {
 	if err != nil {
 		encoded = []byte(text)
 	}
-	fmt.Fprintf(c.Writer, "event:message\ndata:%s\n\n", encoded)
+	_, _ = fmt.Fprintf(c.Writer, "event:message\ndata:%s\n\n", encoded)
 	c.Writer.Flush()
 }

@@ -61,7 +61,7 @@ func indexDocument(doc model.LegalDocument) (int, error) {
 	for _, chunk := range chunks {
 		chunkTexts = append(chunkTexts, chunk.Text)
 	}
-	embeddings := make([][]float64, len(chunks))
+	var embeddings [][]float64
 	embeddingFailed := false
 	if llmConfig.EmbeddingsEnabled {
 		embeddedValues, embErr := EmbedTextBatch(chunkTexts)

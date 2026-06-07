@@ -98,15 +98,6 @@ func (a *opArea) setError(err error) {
 	a.result = nil
 }
 
-func (a *opArea) readResult() ([]byte, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.errText != "" {
-		return nil, fmt.Errorf("%s", a.errText)
-	}
-	return append([]byte(nil), a.result...), nil
-}
-
 func (a *opArea) readMeta() ([]byte, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

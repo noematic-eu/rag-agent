@@ -26,7 +26,8 @@ func retrieveDocuments(c *gin.Context) {
 		return
 	}
 	if includeTextParam(c) {
-		enrichRetrieveHitsWithExcerpts(&resp, retrievalText)
+		excerptQuery := effectiveRetrievalQueryForExcerpts(c, retrievalText, generationText)
+		enrichRetrieveHitsWithExcerpts(&resp, excerptQuery)
 	}
 	c.JSON(http.StatusOK, resp)
 }
@@ -46,13 +47,30 @@ func includeTextParam(c *gin.Context) bool {
 	return v
 }
 
+func effectiveRetrievalQueryForExcerpts(c *gin.Context, retrievalText, generationText string) string {
+	if strings.TrimSpace(retrievalText) != "" {
+		return retrievalText
+	}
+	if strings.TrimSpace(generationText) == "" {
+		return ""
+	}
+	p := rankParamsFromContext(c, generationText)
+	rewriteEnabled := parseRewriteParam(c.Query("rewrite"), p.corpus)
+	queries := buildRetrievalQueries(generationText, "", p.corpus, rewriteEnabled)
+	return strings.Join(queries, " ")
+}
+
 func enrichRetrieveHitsWithExcerpts(resp *model.RetrieveResponse, retrievalQuery string) {
 	for i := range resp.Hits {
 		chunk, err := loadChunkByID(resp.Hits[i].ChunkID)
 		if err != nil {
 			continue
 		}
-		resp.Hits[i].Excerpt = excerptText(chunk.Text, retrievalQuery, maxSnippetChars)
+		article := resp.Hits[i].Article
+		if article == "" {
+			article = chunk.Metadata.Article
+		}
+		resp.Hits[i].Excerpt = excerptTextForChunk(chunk.Text, retrievalQuery, article, maxSnippetChars)
 	}
 }
 

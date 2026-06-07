@@ -23,13 +23,13 @@ func TestIngestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	// Initialize test databases
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
@@ -116,13 +116,13 @@ func TestIngestHTMLDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	defer cleanupTestDatabases()
@@ -167,13 +167,13 @@ func TestStoredChunkPlainText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-plain-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 
@@ -318,13 +318,13 @@ func TestSearchDocuments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	defer cleanupTestDatabases()
@@ -379,13 +379,13 @@ func TestSearchNoResults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	defer cleanupTestDatabases()
@@ -560,13 +560,13 @@ func TestStoreChunkMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	defer cleanupTestDatabases()
@@ -796,8 +796,8 @@ func TestChunkDocumentNoDuplicatedOriginal(t *testing.T) {
 
 func TestChunkDocumentOversizedFirstSection(t *testing.T) {
 	doc := model.LegalDocument{
-		ID:    "mixed-sections",
-		Title: "Mixed",
+		ID:      "mixed-sections",
+		Title:   "Mixed",
 		Content: strings.Repeat("preamble ", 8000) + "\n\n# Small\n\nShort section body with enough words to pass filters.",
 	}
 
@@ -832,7 +832,7 @@ func TestChunkDocumentWithLargeContent(t *testing.T) {
 	// Create a large document
 	var content strings.Builder
 	for i := 0; i < 100; i++ {
-		content.WriteString(fmt.Sprintf("# Section %d\n\nThis is paragraph %d with some content to make it longer.\n", i, i))
+		_, _ = fmt.Fprintf(&content, "# Section %d\n\nThis is paragraph %d with some content to make it longer.\n", i, i)
 	}
 
 	doc := model.LegalDocument{
@@ -865,13 +865,13 @@ func TestStoreChunkMetadataError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-test-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	defer cleanupTestDatabases()

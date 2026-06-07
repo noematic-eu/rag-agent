@@ -16,8 +16,8 @@ type LegalDocument struct {
 type ChunkMetadata struct {
 	DocID       string `json:"doc_id"`               // ID du document parent
 	ChunkID     string `json:"chunk_id"`             // ID unique du chunk
-	Title       string `json:"title"`                          // Section heading within the document
-	DocTitle    string `json:"doc_title,omitempty"`            // Parent document title (ingest filename)
+	Title       string `json:"title"`                // Section heading within the document
+	DocTitle    string `json:"doc_title,omitempty"`  // Parent document title (ingest filename)
 	SectionPath string `json:"section_path"`         // Chemin de section (ex: "Chapitre I -> Section 1")
 	Source      string `json:"source"`               // Source du chunk (ex: "markdown", "html")
 	Position    int    `json:"position"`             // Position du chunk dans le document

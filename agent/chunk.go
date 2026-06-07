@@ -9,7 +9,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 
 	"github.com/noematic-eu/ai-rag-agent/model"
@@ -40,14 +39,6 @@ type ChunkResult struct {
 	SentencePos int // Position de la phrase dans le document original
 }
 
-// parseMarkdownToAST analyse le markdown et retourne l'AST
-func parseMarkdownToAST(md string) (*ast.Document, error) {
-	reader := text.NewReader([]byte(md))
-	parser := parser.NewParser()
-	document := parser.Parse(reader)
-	return document.(*ast.Document), nil
-}
-
 // extractHeadings extrait les titres d'un document markdown
 func extractHeadings(md string) []string {
 	var headings []string
@@ -56,7 +47,7 @@ func extractHeadings(md string) []string {
 	p := parser.Parser()
 	document := p.Parse(reader)
 
-	ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+	_ = ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
@@ -102,10 +93,18 @@ func extractTextFromNode(node ast.Node, source []byte) string {
 		} else if s, ok := child.(*ast.String); ok {
 			buf.WriteString(string(s.Value))
 		} else if code, ok := child.(*ast.CodeSpan); ok {
-			buf.Write(code.Text(source))
+			writeCodeSpanText(&buf, code, source)
 		}
 	}
 	return buf.String()
+}
+
+func writeCodeSpanText(buf *bytes.Buffer, code *ast.CodeSpan, source []byte) {
+	for gc := code.FirstChild(); gc != nil; gc = gc.NextSibling() {
+		if t, ok := gc.(*ast.Text); ok {
+			buf.Write(t.Segment.Value(source))
+		}
+	}
 }
 
 // splitByHeadings divise le contenu par les headings
@@ -118,7 +117,7 @@ func splitByHeadings(md string) []string {
 	var sections []string
 	var currentSection strings.Builder
 
-	ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+	_ = ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
@@ -149,7 +148,7 @@ func splitByHeadings(md string) []string {
 				} else if s, ok := child.(*ast.String); ok {
 					buf.WriteString(string(s.Value))
 				} else if code, ok := child.(*ast.CodeSpan); ok {
-					buf.Write(code.Text(reader.Source()))
+					writeCodeSpanText(&buf, code, reader.Source())
 				}
 			}
 			currentSection.WriteString(buf.String())

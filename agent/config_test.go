@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -38,9 +37,6 @@ func TestResolveAgentConfigFlagOverridesEnv(t *testing.T) {
 	abs, _ := filepath.Abs(dir)
 	if cfg.DataDir != abs {
 		t.Fatalf("data-dir: got %q want %q", cfg.DataDir, abs)
-	}
-	if _, err := os.Stat(cfg.blevePath()); err != nil && !os.IsNotExist(err) {
-		// MkdirAll creates data-dir only, not bleve subdir yet
 	}
 	if cfg.blevePath() != filepath.Join(abs, "legal.bleve") {
 		t.Fatalf("bleve path: %s", cfg.blevePath())

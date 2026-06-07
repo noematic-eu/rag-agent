@@ -97,9 +97,7 @@ func buildRetrievalQueries(generationQuery, explicitRetrieval, corpus string, re
 		log.Printf("query rewrite: LLM failed: %v", err)
 		return dedupeQueries(queries)
 	}
-	for _, q := range parseRewriteQueries(raw) {
-		queries = append(queries, q)
-	}
+	queries = append(queries, parseRewriteQueries(raw)...)
 	return dedupeQueries(queries)
 }
 

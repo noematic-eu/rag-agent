@@ -32,10 +32,11 @@ services:
       RAG_LLM_PROVIDER: "ollama"
       # host.docker.internal resolves to the Mac host from inside Docker
       RAG_LLM_BASE_URL: "http://host.docker.internal:11434"
-      RAG_LLM_MODEL: "qwq"
+      RAG_LLM_MODEL: "qwen2.5:7b-instruct"
       RAG_EMBEDDING_MODEL: "nomic-embed-text"
       RAG_LEXICAL_ENGINE: "bleve"
-      # Optional: set RAG_CORS_ORIGINS for browser clients
+      # Required for the live demo on localhost:4321 (Astro dev / site preview).
+      RAG_CORS_ORIGINS: "${RAG_CORS_ORIGINS:-http://localhost:4321,http://127.0.0.1:4321}"
     # Host 8081 avoids clashing with a native ./bin/agent on 127.0.0.1:8080 (no CORS).
     ports:
       - "8081:8080"

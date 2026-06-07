@@ -10,9 +10,6 @@ import (
 	"strings"
 )
 
-type ollamaCompleteResponse struct {
-	Response string `json:"response"`
-}
 
 type openAICompleteResponse struct {
 	Choices []struct {
@@ -28,19 +25,29 @@ func completeLLM(ctx context.Context, systemPrompt, userPrompt string) (string, 
 	case ProviderOpenAI:
 		return completeOpenAIChat(ctx, systemPrompt, userPrompt)
 	default:
-		combined := userPrompt
-		if systemPrompt != "" {
-			combined = systemPrompt + "\n\n" + userPrompt
-		}
-		return completeOllamaGenerate(ctx, combined)
+		return completeOllamaChat(ctx, systemPrompt, userPrompt)
 	}
 }
 
-func completeOllamaGenerate(ctx context.Context, prompt string) (string, error) {
-	reqBody, err := json.Marshal(ollamaGenerateRequest{
-		Model:  llmConfig.GenerationModel,
-		Prompt: prompt,
-		Stream: false,
+type ollamaChatCompleteResponse struct {
+	Message struct {
+		Content string `json:"content"`
+	} `json:"message"`
+}
+
+func completeOllamaChat(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	messages := []openAIChatMessage{{Role: "user", Content: userPrompt}}
+	if systemPrompt != "" {
+		messages = []openAIChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		}
+	}
+
+	reqBody, err := json.Marshal(ollamaChatRequest{
+		Model:    llmConfig.GenerationModel,
+		Messages: messages,
+		Stream:   false,
 	})
 	if err != nil {
 		return "", err
@@ -56,21 +63,21 @@ func completeOllamaGenerate(ctx context.Context, prompt string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("ollama complete (status %d): %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("ollama chat complete (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	var parsed ollamaCompleteResponse
+	var parsed ollamaChatCompleteResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(parsed.Response), nil
+	return strings.TrimSpace(parsed.Message.Content), nil
 }
 
 func completeOpenAIChat(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
@@ -101,7 +108,7 @@ func completeOpenAIChat(ctx context.Context, systemPrompt, userPrompt string) (s
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

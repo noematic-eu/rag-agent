@@ -14,13 +14,13 @@ func TestRetrieveReturnsHits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-retrieve-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	defer cleanupTestDatabases()
@@ -65,13 +65,13 @@ func TestRetrieveIncludeText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempBleveDir)
+	defer func() { _ = os.RemoveAll(tempBleveDir) }()
 
 	tempChunkStoreDir, err := os.MkdirTemp("", "f4kvs-retrieve-text-*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempChunkStoreDir)
+	defer func() { _ = os.RemoveAll(tempChunkStoreDir) }()
 
 	setupTestDatabases(t, tempBleveDir, tempChunkStoreDir)
 	defer cleanupTestDatabases()

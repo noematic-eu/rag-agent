@@ -40,9 +40,9 @@ type Backend interface {
 
 // Config opens a lexical backend under DataDir.
 type Config struct {
-	DataDir      string
-	Engine       string
-	ScanChunks   func(yield func(model.Chunk) error) error
+	DataDir    string
+	Engine     string
+	ScanChunks func(yield func(model.Chunk) error) error
 }
 
 func (c Config) BlevePath() string   { return filepath.Join(c.DataDir, "legal.bleve") }

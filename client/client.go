@@ -37,7 +37,7 @@ func (c *Client) IngestDocument(doc docmodel.LegalDocument) error {
 	if err != nil {
 		return fmt.Errorf("erreur lors de l'envoi de la requête : %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -52,7 +52,7 @@ func (c *Client) Finalize() error {
 	if err != nil {
 		return fmt.Errorf("erreur lors de l'envoi de la requête : %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -74,7 +74,7 @@ func (c *Client) Search(query string) error {
 	if err != nil {
 		return fmt.Errorf("erreur lors de la requête : %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -160,7 +160,7 @@ func processData(eventType, data string, metadata *map[string]interface{}, compl
 	case "message":
 		if data != "" {
 			fmt.Print(data[:len(data)-1])
-			os.Stdout.Sync() // Ensure immediate output
+			_ = os.Stdout.Sync() // Ensure immediate output
 		}
 	case "metadata":
 		if strings.HasPrefix(data, "{") {

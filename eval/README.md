@@ -28,6 +28,7 @@ One JSON object per line:
   "expected_chunk_ids": ["doc-...-chunk-0"],
   "expected_sections": ["ARTICLE 16"],
   "match_all_sections": false,
+  "excerpt_terms_by_section": {"ARTICLE 16": ["pouvoirs exceptionnels"]},
   "reference_answer": "optional for RAGAS ground_truth",
   "expect_no_results": false
 }
@@ -98,6 +99,33 @@ go run ./client -mode eval-retrieval \
 | C | below B | below B |
 
 Default CI threshold for public set: **0.65** (`EVAL_MIN_RECALL` in `scripts/eval.sh`) on the **bleve** engine only.
+
+## Excerpt eval (generation context)
+
+Checks that `/retrieve?include_text=1` excerpts contain substantive body text, not heading-only snippets. Gold rows opt in with `excerpt_terms_by_section`:
+
+```bash
+go run ./client -mode eval-excerpt \
+  -server http://127.0.0.1:8080 \
+  -gold eval/gold/legal.jsonl \
+  -eval-top-k 8 \
+  -min-excerpt-pass 1.0
+```
+
+Cases without `excerpt_terms_by_section` are skipped. The `legal-pleins-pouvoirs-election` case asserts Article 16 and Article 7 excerpts include key constitutional phrases (including `reporter` on Art. 7).
+
+## Generation checklist eval
+
+Lightweight phrase checks on live `/search` answers (requires a running agent + Ollama):
+
+```bash
+go run ./client -mode eval-generation \
+  -server http://127.0.0.1:8080 \
+  -gold eval/gold/legal.jsonl \
+  -min-generation-pass 1.0
+```
+
+Gold rows opt in with `generation_phrases` and `generation_q`.
 
 ## Lexical engine matrix
 
