@@ -35,9 +35,10 @@ func TestEmbedTextBatchCountMismatch(t *testing.T) {
 
 	previousConfig := llmConfig
 	llmConfig = LLMConfig{
-		Provider:       ProviderOllama,
-		BaseURL:        server.URL,
-		EmbeddingModel: "nomic-embed-text",
+		Provider:          ProviderOllama,
+		BaseURL:           server.URL,
+		EmbeddingModel:    "nomic-embed-text",
+		EmbeddingsEnabled: true,
 	}
 	t.Cleanup(func() { llmConfig = previousConfig })
 
@@ -55,9 +56,10 @@ func TestEmbedTextBatchHTTPError(t *testing.T) {
 
 	previousConfig := llmConfig
 	llmConfig = LLMConfig{
-		Provider:       ProviderOllama,
-		BaseURL:        server.URL,
-		EmbeddingModel: "nomic-embed-text",
+		Provider:          ProviderOllama,
+		BaseURL:           server.URL,
+		EmbeddingModel:    "nomic-embed-text",
+		EmbeddingsEnabled: true,
 	}
 	t.Cleanup(func() { llmConfig = previousConfig })
 
@@ -78,9 +80,10 @@ func TestIndexDocumentStoresChunkEmbedding(t *testing.T) {
 
 	previousConfig := llmConfig
 	llmConfig = LLMConfig{
-		Provider:       ProviderOllama,
-		BaseURL:        server.URL,
-		EmbeddingModel: "nomic-embed-text",
+		Provider:          ProviderOllama,
+		BaseURL:           server.URL,
+		EmbeddingModel:    "nomic-embed-text",
+		EmbeddingsEnabled: true,
 	}
 	t.Cleanup(func() { llmConfig = previousConfig })
 

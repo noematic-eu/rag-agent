@@ -764,7 +764,7 @@ func TestBuildHeadingPath(t *testing.T) {
 
 func TestChunkDocumentNoDuplicatedOriginal(t *testing.T) {
 	var content strings.Builder
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 1300; i++ {
 		content.WriteString("word ")
 	}
 
