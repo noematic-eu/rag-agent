@@ -66,7 +66,7 @@ func TestScoreGenerationPhrases(t *testing.T) {
 		t.Fatalf("expected pass, got pass=%v missed=%v", pass, missed)
 	}
 	pass, missed = scoreGenerationPhrases(gc, "réponse sans mots-clés")
-	if pass {
-		t.Fatalf("expected fail, got pass=%v", pass)
+	if pass || len(missed) == 0 {
+		t.Fatalf("expected fail, got pass=%v missed=%v", pass, missed)
 	}
 }
