@@ -10,3 +10,4 @@ bin/
 lib/
 eval/out/*
 !eval/out/.gitkeep
+__pycache__/

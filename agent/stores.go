@@ -30,9 +30,6 @@ func openStores(cfg agentConfig) error {
 		chunkStore = nil
 		return err
 	}
-	if globalIDF == nil {
-		globalIDF = make(map[string]float64)
-	}
 	if err := loadStatsFromStore(); err != nil {
 		return fmt.Errorf("stats init: %w", err)
 	}
@@ -54,9 +51,6 @@ func resetStores() error {
 		}
 	}
 
-	documentTFIDFs = make([]DocumentTFIDF, 0)
-	globalIDF = make(map[string]float64)
-	totalDocs = 0
 	resetStatsState()
 
 	return openStores(storeCfg)

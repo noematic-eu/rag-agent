@@ -70,7 +70,6 @@ func deleteDocumentByID(docID string) (deleted int, corpus string, err error) {
 				log.Printf("lexical delete chunk %s: %v", chunkID, err)
 			}
 		}
-		removeDocumentTFIDF(chunkID)
 		if err := chunkStore.Delete("chunk:" + chunkID); err != nil && !errors.Is(err, f4kvs.ErrNotFound) {
 			return deleted, corpus, err
 		}
@@ -87,19 +86,3 @@ func deleteDocumentByID(docID string) (deleted int, corpus string, err error) {
 	return deleted, corpus, nil
 }
 
-func removeDocumentTFIDF(chunkID string) {
-	if chunkID == "" {
-		return
-	}
-	filtered := documentTFIDFs[:0]
-	for _, d := range documentTFIDFs {
-		if d.ID == chunkID {
-			if totalDocs > 0 {
-				totalDocs--
-			}
-			continue
-		}
-		filtered = append(filtered, d)
-	}
-	documentTFIDFs = filtered
-}

@@ -37,8 +37,6 @@ func setupTestDatabases(t *testing.T, bleveDir, chunkStoreDir string) {
 		_ = closeLexicalBackend()
 	})
 
-	documentTFIDFs = make([]DocumentTFIDF, 0)
-	globalIDF = make(map[string]float64)
 }
 
 func firstStoredChunk(t *testing.T) model.Chunk {

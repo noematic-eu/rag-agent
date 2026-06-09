@@ -161,9 +161,7 @@ func (a *Agent) Reset() error {
 }
 
 func (a *Agent) Finalize() error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	finalizeIDF()
+	// Legacy no-op: TF-IDF finalize path removed; retrieval uses Bleve + embeddings.
 	return nil
 }
 

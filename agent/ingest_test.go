@@ -601,67 +601,6 @@ func TestStoreChunkMetadata(t *testing.T) {
 	}
 }
 
-func TestIngestCosineSimilarity(t *testing.T) {
-	doc1 := DocumentTFIDF{
-		ID:    "doc1",
-		TFIDF: map[string]float64{"term1": 0.5, "term2": 0.3},
-		Norm:  0.58,
-	}
-	doc2 := DocumentTFIDF{
-		ID:    "doc2",
-		TFIDF: map[string]float64{"term1": 0.4, "term2": 0.2},
-		Norm:  0.45,
-	}
-
-	similarity := cosineSimilarity(doc1, doc2)
-
-	if similarity < 0 || similarity > 1 {
-		t.Errorf("Cosine similarity should be between 0 and 1, got %f", similarity)
-	}
-}
-
-func TestIngestCalculateTF(t *testing.T) {
-	tokens := []string{"term1", "term2", "term1", "term3", "term1"}
-	tf := calculateTF(tokens)
-
-	if tf["term1"] != 0.6 { // 3/5
-		t.Errorf("Expected term1 TF to be 0.6, got %f", tf["term1"])
-	}
-	if tf["term2"] != 0.2 { // 1/5
-		t.Errorf("Expected term2 TF to be 0.2, got %f", tf["term2"])
-	}
-	if tf["term3"] != 0.2 { // 1/5
-		t.Errorf("Expected term3 TF to be 0.2, got %f", tf["term3"])
-	}
-}
-
-func TestIngestCalculateNorm(t *testing.T) {
-	tf := map[string]float64{"term1": 0.5, "term2": 0.3}
-	globalIDF = map[string]float64{"term1": 2.0, "term2": 3.0}
-
-	norm := calculateNorm(tf)
-
-	if norm <= 0 {
-		t.Errorf("Expected positive norm, got %f", norm)
-	}
-}
-
-func TestIngestTokenize(t *testing.T) {
-	text := "The quick brown fox jumps over the lazy dog"
-	tokens := tokenize(text)
-
-	if len(tokens) == 0 {
-		t.Error("Expected at least one token")
-	}
-
-	// Check that tokens are lowercase
-	for _, token := range tokens {
-		if token != strings.ToLower(token) {
-			t.Errorf("Token should be lowercase: %s", token)
-		}
-	}
-}
-
 func TestIngestParseMarkdown(t *testing.T) {
 	md := "# Title\n\nThis is a paragraph.\n\n## Section\n\nMore content."
 	text := parseMarkdown(md)

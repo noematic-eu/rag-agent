@@ -23,7 +23,6 @@ func setupEmbeddingTestStores(t *testing.T) {
 		}
 	})
 
-	totalDocs = 0
 }
 
 func TestEmbedTextBatchCountMismatch(t *testing.T) {

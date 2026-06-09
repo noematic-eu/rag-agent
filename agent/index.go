@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
-	"math"
-	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -14,7 +12,7 @@ import (
 	"github.com/noematic-eu/ai-rag-agent/model"
 )
 
-// indexDocument indexe le contenu du document dans bleve et calcule ses scores TF-IDF.
+// indexDocument indexe le contenu du document dans le moteur lexical et f4kvs.
 // It returns the number of chunks indexed.
 func indexDocument(doc model.LegalDocument) (int, error) {
 	if err := ensureManifestInitialized(); err != nil {
@@ -102,16 +100,6 @@ func indexDocument(doc model.LegalDocument) (int, error) {
 			continue
 		}
 
-		tokens := tokenize(text)
-		tf := calculateTF(tokens)
-		updateIDF(tokens)
-
-		documentTFIDFs = append(documentTFIDFs, DocumentTFIDF{
-			ID:    chunkID,
-			TFIDF: tf,
-			Norm:  calculateNorm(tf),
-		})
-
 		storeChunkMetadata(chunks[i])
 		indexed++
 		if len(chunks[i].Embedding) > 0 {
@@ -120,7 +108,6 @@ func indexDocument(doc model.LegalDocument) (int, error) {
 		log.Printf("Chunk %s indexé (%d/%d)", chunkID, indexed, len(chunks))
 	}
 
-	totalDocs += float64(indexed)
 	if indexed > 0 {
 		storeDocumentMetadata(doc)
 	}
@@ -166,86 +153,3 @@ func parseMarkdown(md string) string {
 	return doc.Text()
 }
 
-// calculateTF calcule la fréquence des termes pour un document
-func calculateTF(tokens []string) map[string]float64 {
-	tf := make(map[string]float64)
-	total := float64(len(tokens))
-	if total == 0 {
-		return tf
-	}
-	for _, token := range tokens {
-		tf[token]++
-	}
-	for token := range tf {
-		tf[token] /= total
-	}
-	return tf
-}
-
-// calculateNorm calcule la norme du vecteur TF-IDF
-func calculateNorm(tf map[string]float64) float64 {
-	var sum float64
-	for term, tfScore := range tf {
-		if idf, exists := globalIDF[term]; exists {
-			sum += tfScore * tfScore * idf * idf
-		}
-	}
-	return math.Sqrt(sum)
-}
-
-// cosineSimilarity calcule la similarité cosinus entre deux documents
-func cosineSimilarity(doc1, doc2 DocumentTFIDF) float64 {
-	var dotProduct float64
-	for term, tfidf1 := range doc1.TFIDF {
-		if tfidf2, exists := doc2.TFIDF[term]; exists {
-			dotProduct += tfidf1 * tfidf2
-		}
-	}
-	if doc1.Norm == 0 || doc2.Norm == 0 {
-		return 0
-	}
-	return dotProduct / (doc1.Norm * doc2.Norm)
-}
-
-func tokenize(text string) []string {
-	words := strings.Fields(strings.ToLower(text))
-	var tokens []string
-	for i := 0; i < len(words); i++ {
-		cleaned := tokenCleaner.ReplaceAllString(words[i], "")
-		if cleaned == "" {
-			continue
-		}
-		if len(cleaned) > 2 || isLegalTerm(cleaned) {
-			next := ""
-			if i+1 < len(words) {
-				next = tokenCleaner.ReplaceAllString(words[i+1], "")
-			}
-			if next != "" && isLegalPhrase(cleaned, next) {
-				tokens = append(tokens, cleaned+" "+next)
-				i++
-			} else {
-				tokens = append(tokens, cleaned)
-			}
-		}
-	}
-	return tokens
-}
-
-var totalDocs float64
-var tokenCleaner = regexp.MustCompile(`[^\p{L}\p{N}]+`)
-
-func updateIDF(tokens []string) {
-	seen := make(map[string]bool)
-	for _, token := range tokens {
-		if !seen[token] {
-			globalIDF[token]++
-			seen[token] = true
-		}
-	}
-}
-
-func finalizeIDF() {
-	for token := range globalIDF {
-		globalIDF[token] = math.Log(totalDocs / globalIDF[token])
-	}
-}
