@@ -85,4 +85,3 @@ func deleteDocumentByID(docID string) (deleted int, corpus string, err error) {
 	}
 	return deleted, corpus, nil
 }
-

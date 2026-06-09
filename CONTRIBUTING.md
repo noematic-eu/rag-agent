@@ -30,12 +30,23 @@ cp .env.example .env
 
 Without building f4kvs, you can still run `make check` and work on `./client`, `./lexical`, `./agent/p9fs`, and `./model`. See the README section [Without building f4kvs](../README.md#without-building-f4kvs).
 
+## Git hooks
+
+Install the repository pre-commit hook once per clone:
+
+```bash
+make install-hooks
+```
+
+The hook blocks commits that include unformatted Go files under `agent/`, `client/`, `lexical/`, `model/`, or `internal/`. Run `make fmt` to fix formatting before committing.
+
 ## Makefile targets
 
 | Target | Description |
 |--------|-------------|
 | `make fmt` | Format Go sources (`gofmt -w`) |
 | `make fmt-check` | Fail if any Go file is not formatted |
+| `make install-hooks` | Enable `.githooks/pre-commit` for this clone |
 | `make vet` | `go vet` on packages that build without f4kvs |
 | `make lint` | Run golangci-lint on `./...` |
 | `make test-lite` | Test `./client`, `./lexical`, `./agent/p9fs`, `./model` |
@@ -49,7 +60,7 @@ Without building f4kvs, you can still run `make check` and work on `./client`, `
 
 ## CI
 
-GitHub Actions runs format checks, lint, lightweight tests, full build/test (with f4kvs-ffi cloned from public GitHub), and retrieval eval on every push and pull request. No repository secrets are required for f4kvs.
+GitHub Actions runs format checks, lint, lightweight tests, full build/test (with f4kvs-ffi cloned from public GitHub), and retrieval eval on every push and pull request. Docker images are published to GHCR only when a GitHub release is published. No repository secrets are required for f4kvs.
 
 ## Build and test
 

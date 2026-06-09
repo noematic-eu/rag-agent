@@ -24,13 +24,16 @@ BUILD_TAGS := tantivy
 CGO_LDFLAGS := -L$(CURDIR)/$(LIB_DIR)
 export CGO_LDFLAGS
 
-.PHONY: f4kvs tantivy build test agent client fmt fmt-check vet lint test-lite check eval-public eval-domain compare-lexical
+.PHONY: f4kvs tantivy build test agent client fmt fmt-check install-hooks vet lint test-lite check eval-public eval-domain compare-lexical
 
 fmt:
 	gofmt -w ./agent ./client ./lexical ./model ./internal
 
 fmt-check:
 	@test -z "$$(gofmt -l ./agent ./client ./lexical ./model ./internal)"
+
+install-hooks:
+	git config core.hooksPath .githooks
 
 vet:
 	go vet ./client/... ./lexical/... ./agent/p9fs/... ./model/...

@@ -30,7 +30,8 @@ services:
       RAG_LLM_BASE_URL: "http://host.docker.internal:11434"
       RAG_LLM_MODEL: "qwen2.5:7b-instruct"
       RAG_EMBEDDING_MODEL: "nomic-embed-text"
-      RAG_LEXICAL_ENGINE: "bleve"
+      # f4kvs RAM BM25 avoids Bleve bolt merge deadlocks during large bulk ingests (~86k+ chunks).
+      RAG_LEXICAL_ENGINE: "f4kvs"
       # Required for the live demo on localhost:4321 (Astro dev / site preview).
       RAG_CORS_ORIGINS: "${RAG_CORS_ORIGINS:-http://localhost:4321,http://127.0.0.1:4321}"
     # Host 8081 avoids clashing with a native ./bin/agent on 127.0.0.1:8080 (no CORS).

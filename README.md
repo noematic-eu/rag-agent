@@ -138,7 +138,7 @@ Release checklist and artifact list: [`docs/releases/v0.1.0-checklist.md`](docs/
 
 ## Docker (pre-built image)
 
-Published multi-arch images: `ghcr.io/noematic-eu/rag-agent` (`linux/amd64`, `linux/arm64`).
+Published multi-arch images: `ghcr.io/noematic-eu/rag-agent` (`linux/amd64`, `linux/arm64`). Images are pushed to GHCR when a [GitHub release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) is published (not on every push to `main`).
 
 **One-liner** (Ollama on the host):
 

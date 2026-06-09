@@ -152,4 +152,3 @@ func parseMarkdown(md string) string {
 	}
 	return doc.Text()
 }
-

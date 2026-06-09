@@ -2,7 +2,7 @@
 
 This bundle starts `rag-agent` in Docker for local pilots. By default it uses **Ollama on the host** (`host.docker.internal:11434`), not a containerized Ollama service.
 
-Pre-built images are published to **GHCR**: `ghcr.io/noematic-eu/rag-agent` (`linux/amd64`, `linux/arm64`).
+Pre-built images are published to **GHCR** on each GitHub release: `ghcr.io/noematic-eu/rag-agent` (`linux/amd64`, `linux/arm64`). Pin a version tag (e.g. `:v0.1.0`) or use `:latest` for the most recent release.
 
 ## 1) Pull and run
 
