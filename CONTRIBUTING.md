@@ -38,7 +38,7 @@ Install the repository pre-commit hook once per clone:
 make install-hooks
 ```
 
-The hook blocks commits that include unformatted Go files under `agent/`, `client/`, `lexical/`, `model/`, or `internal/`. Run `make fmt` to fix formatting before committing.
+The hook blocks commits that include unformatted Go files under `agent/`, `client/`, `lexical/`, `model/`, or `internal/`, and runs `golangci-lint run ./...` (same as CI). Run `make fmt` to fix formatting and `make lint` to reproduce lint failures locally.
 
 ## Makefile targets
 
