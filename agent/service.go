@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -95,6 +96,24 @@ func (a *Agent) Retrieve(opts RankOptions) (model.RetrieveResponse, error) {
 	}, nil
 }
 
+func searchModeFromOptions(opts RankOptions) searchModeConfig {
+	cfg := searchModeConfig{cragMaxRounds: defaultCRAGMaxRounds}
+	if opts.CRAGMaxRounds > 0 {
+		cfg.cragMaxRounds = opts.CRAGMaxRounds
+	}
+	if cfg.cragMaxRounds > maxCRAGMaxRounds {
+		cfg.cragMaxRounds = maxCRAGMaxRounds
+	}
+	switch strings.TrimSpace(strings.ToLower(opts.SearchMode)) {
+	case searchModeCRAG:
+		cfg.cragEnabled = true
+	case searchModeAgent:
+		cfg.agentEnabled = true
+		cfg.cragEnabled = true
+	}
+	return cfg
+}
+
 func (a *Agent) Search(opts RankOptions, generationQuery string) (SearchResult, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -110,7 +129,23 @@ func (a *Agent) Search(opts RankOptions, generationQuery string) (SearchResult, 
 		explicitRetrieval = strings.TrimSpace(opts.RetrievalText)
 	}
 	pipeline := retrievalPipelineFromOptions(opts, generationText, explicitRetrieval)
-	outcome, rewriteQueries, err := runRetrievalPipeline(pipeline)
+	mode := searchModeFromOptions(opts)
+
+	var (
+		outcome        rankOutcome
+		docs           []model.LegalDocument
+		rewriteQueries []string
+		extraMeta      map[string]string
+		err            error
+	)
+
+	if mode.cragEnabled || mode.agentEnabled {
+		outcome, docs, rewriteQueries, extraMeta, err = runSearchWithAgenticModes(
+			context.Background(), pipeline, generationText, opts.Lang, mode, nil,
+		)
+	} else {
+		outcome, rewriteQueries, err = runRetrievalPipeline(pipeline)
+	}
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -118,14 +153,15 @@ func (a *Agent) Search(opts RankOptions, generationQuery string) (SearchResult, 
 	if retrievalText == "" && len(rewriteQueries) > 0 {
 		retrievalText = rewriteQueries[0]
 	}
-	if outcome.noResults {
-		return SearchResult{
-			Status:  "no_results",
-			Message: "Aucun résultat pertinent",
-		}, nil
+	if !mode.cragEnabled && !mode.agentEnabled {
+		if outcome.noResults {
+			return SearchResult{
+				Status:  "no_results",
+				Message: "Aucun résultat pertinent",
+			}, nil
+		}
+		docs = retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
 	}
-
-	docs := retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
 	if len(docs) == 0 {
 		return SearchResult{
 			Status:  "no_results",
@@ -134,11 +170,14 @@ func (a *Agent) Search(opts RankOptions, generationQuery string) (SearchResult, 
 	}
 
 	buf := &bufferStreamWriter{}
-	if err := generateResponseWithStream(docs, generationText, retrievalText, opts.Lang, opts.TopKFinal, rewriteQueries, buf); err != nil {
+	if err := generateResponseWithStream(docs, generationText, retrievalText, opts.Lang, opts.TopKFinal, rewriteQueries, extraMeta, buf); err != nil {
 		return SearchResult{}, err
 	}
 	if buf.metadata == nil {
 		buf.metadata = map[string]string{}
+	}
+	for k, v := range extraMeta {
+		buf.metadata[k] = v
 	}
 	if len(rewriteQueries) > 0 {
 		buf.metadata["rewrite_queries"] = formatRetrievalQueriesDebug(rewriteQueries)

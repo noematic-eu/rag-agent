@@ -39,6 +39,7 @@ func normalizeDocumentContent(doc model.LegalDocument) (model.LegalDocument, err
 		if normalized.OriginalContent == "" {
 			normalized.OriginalContent = normalized.Content
 		}
+		normalized.Content = stripCopyrightInline(normalized.Content)
 	}
 
 	return normalized, nil

@@ -25,6 +25,27 @@ func TestScoreRetrievalMiss(t *testing.T) {
 	}
 }
 
+func TestScoreRetrievalMatchAllDocIDs(t *testing.T) {
+	gc := GoldCase{
+		ExpectedDocIDs: []string{"doc-a", "doc-b"},
+		MatchAllDocIDs: true,
+	}
+	hits := []retrieveHit{
+		{DocID: "doc-a", ChunkID: "doc-a-chunk-0"},
+		{DocID: "doc-b", ChunkID: "doc-b-chunk-0"},
+	}
+	hit, mrr := scoreRetrieval(gc, hits, 8)
+	if !hit || mrr != 1.0 {
+		t.Fatalf("got hit=%v mrr=%v", hit, mrr)
+	}
+
+	partial := []retrieveHit{{DocID: "doc-a", ChunkID: "doc-a-chunk-0"}}
+	hit, mrr = scoreRetrieval(gc, partial, 8)
+	if hit || mrr != 0 {
+		t.Fatalf("expected miss for partial docs, got hit=%v mrr=%v", hit, mrr)
+	}
+}
+
 func TestScoreExcerptTermsPass(t *testing.T) {
 	gc := GoldCase{
 		ExcerptTermsBySection: map[string][]string{

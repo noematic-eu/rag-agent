@@ -8,7 +8,7 @@ import (
 
 func main() {
 	serverURL := flag.String("server", "http://localhost:8080", "Base URL of the rag-agent API")
-	mode := flag.String("mode", "ingest-dir", "Mode: ingest-dir, bench, eval-retrieval, eval-excerpt, eval-generation, or demo")
+	mode := flag.String("mode", "ingest-dir", "Mode: ingest-dir, bench, eval-retrieval, eval-excerpt, eval-generation, eval-baseline, or demo")
 	dir := flag.String("dir", "", "Directory containing .md and .html files (ingest-dir mode)")
 	finalize := flag.Bool("finalize", true, "Call /finalize after directory ingestion")
 	batchSize := flag.Int("batch-size", 100, "Log progress every N ingested files")
@@ -21,6 +21,7 @@ func main() {
 	minGenerationPass := flag.Float64("min-generation-pass", 0, "Fail eval-generation if pass rate is below this (0=disabled)")
 	evalOut := flag.String("eval-out", "", "Write retrieval eval JSON report to this path")
 	evalSet := flag.String("eval-set", "", "Label for eval report (default: gold file basename)")
+	searchMode := flag.String("search-mode", "", "Search mode for eval-generation: crag or agent")
 	flag.Parse()
 
 	switch *mode {
@@ -83,8 +84,18 @@ func main() {
 			MinPass:    *minGenerationPass,
 			OutputJSON: *evalOut,
 			SetName:    setName,
+			SearchMode: *searchMode,
 		}); err != nil {
 			fmt.Fprintf(os.Stderr, "generation eval failed: %v\n", err)
+			os.Exit(1)
+		}
+	case "eval-baseline":
+		if err := RunBaselineEval(baselineEvalConfig{
+			ServerURL:  *serverURL,
+			TopK:       *evalTopK,
+			OutputJSON: *evalOut,
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "baseline eval failed: %v\n", err)
 			os.Exit(1)
 		}
 	case "ingest-dir":

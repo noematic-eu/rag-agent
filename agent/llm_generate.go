@@ -52,22 +52,12 @@ const maxSnippetChars = 900
 const defaultGenerationTopK = 8
 const legalGenerationTopK = 4
 
-func ragSystemPrompt(queryLang string) string {
+func ragBasePrompt(queryLang string) string {
 	if queryLang == "fr" {
 		return "Tu es un assistant qui répond uniquement à partir des extraits fournis. " +
 			"Ne montre jamais ton raisonnement interne, tes hésitations ni une analyse étape par étape avant de répondre ; produis directement la réponse structurée demandée. " +
-			"Avant de répondre, analyse chaque extrait et classe-le mentalement : directement pertinent, contexte général, ou hors sujet. " +
-			"Ne traite pas un extrait de contexte général (ex. principes républicains, souveraineté) comme réponse directe à une question sur une institution précise (ex. Président, Parlement). " +
-			"Si la question porte sur le Président mais que seuls les articles 1-3 sur la souveraineté sont fournis, ne présente pas « gouvernement du peuple » comme obligation présidentielle ; dis-le clairement. " +
 			"Structure ta réponse en trois parties : (1) analyse brève des extraits pertinents vs hors sujet, (2) réponse structurée avec citations [n], (3) limites de ce que les extraits ne couvrent pas. " +
-			"Quand les articles 16 et 7 (ou d'autres articles distincts) sont pertinents, réponds en sous-sections séparées intitulées « Article 16 — pouvoirs exceptionnels » et « Article 7 — élection présidentielle » sans fusionner leurs régimes. " +
-			"Dans la sous-section article 16, si un extrait contient « dissoute » ou l'interdiction de dissolution de l'Assemblée nationale, tu dois inclure une phrase explicite reprenant cette interdiction avec citation [n] avant de passer à l'article 7. " +
-			"Ne confonds pas les pouvoirs exceptionnels (article 16) avec l'empêchement du Président (article 7) sauf si l'extrait établit ce lien. " +
-			"Pour l'article 16, après 30 et 60 jours le Conseil constitutionnel contrôle si les conditions demeurent réunies ; ce n'est pas une expiration automatique des pouvoirs à 30 jours. " +
 			"Chaque affirmation doit citer la source avec [n] (numéro d'extrait). Le numéro [n] doit correspondre exactement à la liste d'extraits. " +
-			"Quand un extrait indique un numéro d'article (champ section= ou article=), nomme cet article explicitement dans ta réponse (ex. « l'article 16 ») en plus de [n]. " +
-			"Utilise le numéro d'article exact tel qu'il apparaît dans l'extrait, sans le modifier. " +
-			"Quand plusieurs extraits concernent des articles différents, fais les liens logiques entre eux quand c'est pertinent (ex. mesures exceptionnelles et report du scrutin). " +
 			"Ne fusionne pas des idées de plusieurs extraits en une seule attribution; une citation [n] = un extrait. " +
 			"Ne nomme pas d'auteur ou de livre sauf s'ils apparaissent dans le texte de cet extrait. " +
 			"Si les extraits ne contiennent pas assez d'information, dis-le clairement. " +
@@ -75,22 +65,60 @@ func ragSystemPrompt(queryLang string) string {
 	}
 	return "You are an assistant that answers only from the provided excerpts. " +
 		"Never show internal reasoning, deliberation, or step-by-step analysis before answering; output the structured response directly. " +
-		"Before answering, analyze each excerpt and mentally classify it: directly relevant, general context, or off-topic. " +
-		"Do not treat general-context excerpts (e.g. republican principles, sovereignty) as a direct answer to a question about a specific institution (e.g. President, Parliament). " +
-		"If the question is about the President but only articles 1-3 on sovereignty are provided, do not present \"government of the people\" as a presidential obligation; say so clearly. " +
 		"Structure your answer in three parts: (1) brief analysis of relevant vs off-topic excerpts, (2) structured answer with [n] citations, (3) limits of what the excerpts do not cover. " +
-		"When Articles 16 and 7 (or other distinct articles) are relevant, answer in separate subsections titled \"Article 16 — emergency powers\" and \"Article 7 — presidential election\" without merging their regimes. " +
-		"In the Article 16 subsection, if an excerpt contains \"dissoute\" or a ban on dissolving the Assemblée nationale, you must include an explicit sentence stating that ban with an [n] citation before moving to Article 7. " +
-		"Do not equate Article 16 exceptional powers with Article 7 presidential empêchement unless an excerpt establishes that link. " +
-		"For Article 16, after 30 and 60 days the Conseil constitutionnel reviews whether conditions still hold; this is oversight, not an automatic 30-day expiry of powers. " +
 		"Every claim must cite its source with [n] (excerpt number). The [n] index must match the excerpt list exactly. " +
-		"When an excerpt names an article (section= or article= field), name that article explicitly in your answer (e.g. \"Article 16\") in addition to [n]. " +
-		"Use the exact article number as it appears in the excerpt. " +
-		"When multiple excerpts cover different articles, explain logical links between them when relevant (e.g. emergency powers and election postponement). " +
 		"Do not merge ideas from different excerpts into one attribution; one [n] = one excerpt. " +
 		"Do not name authors or books unless they appear in that excerpt's text. " +
 		"If the excerpts do not contain enough information, say so clearly. " +
 		"Do not use outside knowledge. Answer in the same language as the question."
+}
+
+func ragLegalOverlay(queryLang string) string {
+	if queryLang == "fr" {
+		return " Avant de répondre, analyse chaque extrait et classe-le mentalement : directement pertinent, contexte général, ou hors sujet. " +
+			"Ne traite pas un extrait de contexte général (ex. principes républicains, souveraineté) comme réponse directe à une question sur une institution précise (ex. Président, Parlement). " +
+			"Si la question porte sur le Président mais que seuls les articles 1-3 sur la souveraineté sont fournis, ne présente pas « gouvernement du peuple » comme obligation présidentielle ; dis-le clairement. " +
+			"Quand les articles 16 et 7 (ou d'autres articles distincts) sont pertinents, réponds en sous-sections séparées intitulées « Article 16 — pouvoirs exceptionnels » et « Article 7 — élection présidentielle » sans fusionner leurs régimes. " +
+			"Dans la sous-section article 16, si un extrait contient « dissoute » ou l'interdiction de dissolution de l'Assemblée nationale, tu dois inclure une phrase explicite reprenant cette interdiction avec citation [n] avant de passer à l'article 7. " +
+			"Ne confonds pas les pouvoirs exceptionnels (article 16) avec l'empêchement du Président (article 7) sauf si l'extrait établit ce lien. " +
+			"Pour l'article 16, après 30 et 60 jours le Conseil constitutionnel contrôle si les conditions demeurent réunies ; ce n'est pas une expiration automatique des pouvoirs à 30 jours. " +
+			"Quand un extrait indique un numéro d'article (champ section= ou article=), nomme cet article explicitement dans ta réponse (ex. « l'article 16 ») en plus de [n]. " +
+			"Utilise le numéro d'article exact tel qu'il apparaît dans l'extrait, sans le modifier. " +
+			"Quand plusieurs extraits concernent des articles différents, fais les liens logiques entre eux quand c'est pertinent (ex. mesures exceptionnelles et report du scrutin)."
+	}
+	return " Before answering, analyze each excerpt and mentally classify it: directly relevant, general context, or off-topic. " +
+		"Do not treat general-context excerpts (e.g. republican principles, sovereignty) as a direct answer to a question about a specific institution (e.g. President, Parliament). " +
+		"If the question is about the President but only articles 1-3 on sovereignty are provided, do not present \"government of the people\" as a presidential obligation; say so clearly. " +
+		"When Articles 16 and 7 (or other distinct articles) are relevant, answer in separate subsections titled \"Article 16 — emergency powers\" and \"Article 7 — presidential election\" without merging their regimes. " +
+		"In the Article 16 subsection, if an excerpt contains \"dissoute\" or a ban on dissolving the Assemblée nationale, you must include an explicit sentence stating that ban with an [n] citation before moving to Article 7. " +
+		"Do not equate Article 16 exceptional powers with Article 7 presidential empêchement unless an excerpt establishes that link. " +
+		"For Article 16, after 30 and 60 days the Conseil constitutionnel reviews whether conditions still hold; this is oversight, not an automatic 30-day expiry of powers. " +
+		"When an excerpt names an article (section= or article= field), name that article explicitly in your answer (e.g. \"Article 16\") in addition to [n]. " +
+		"Use the exact article number as it appears in the excerpt. " +
+		"When multiple excerpts cover different articles, explain logical links between them when relevant (e.g. emergency powers and election postponement)."
+}
+
+func ragGeneralKBOverlay(queryLang string) string {
+	if queryLang == "fr" {
+		return " Avant de répondre, analyse chaque extrait et classe-le : directement pertinent, partiellement pertinent, contexte général, ou hors sujet. " +
+			"Ignore les mentions légales, copyright ou avertissements d'éditeur en en-tête d'extrait ; base ton analyse sur le champ Texte: (contenu utile). " +
+			"Le champ section= peut contenir du bruit PDF : ne le traite pas comme le sujet de l'extrait si le Texte: traite d'un autre thème. " +
+			"Pour une question comportant plusieurs parties (ex. développement logiciel et affaires), réponds séparément pour chaque partie : exploite les extraits pertinents pour les parties couvertes et indique clairement dans les limites ce qui manque. " +
+			"Un extrait partiellement pertinent apporte des éléments de réponse même s'il ne couvre pas toute la question."
+	}
+	return " Before answering, classify each excerpt: directly relevant, partially relevant, general context, or off-topic. " +
+		"Ignore legal notices, copyright, or publisher warnings in excerpt headers; base your analysis on the Texte: field (useful content). " +
+		"The section= field may contain PDF noise: do not treat it as the excerpt topic when Texte: covers a different subject. " +
+		"For multi-part questions, answer each part separately: use relevant excerpts for covered parts and state clearly in limits what is missing. " +
+		"A partially relevant excerpt still provides useful answer elements even if it does not cover the whole question."
+}
+
+func ragSystemPrompt(queryLang string, docs []model.LegalDocument) string {
+	base := ragBasePrompt(queryLang)
+	if isLegalGenerationDocs(docs) {
+		return base + ragLegalOverlay(queryLang)
+	}
+	return base + ragGeneralKBOverlay(queryLang)
 }
 
 func isLegalGenerationDocs(docs []model.LegalDocument) bool {
@@ -144,12 +172,7 @@ func buildRAGUserMessage(docs []model.LegalDocument, generationQuery, retrievalQ
 			break
 		}
 		body := excerptTextForChunk(doc.Content, retrievalQuery, doc.Article, maxSnippetChars)
-		book := strings.TrimSpace(doc.BookTitle)
-		section := strings.TrimSpace(doc.Title)
-		sectionPath := section
-		if book != "" && book != section {
-			sectionPath = book + " -> " + section
-		}
+		sectionPath := displaySectionPath(doc)
 		articleField := ""
 		if art := strings.TrimSpace(doc.Article); art != "" {
 			articleField = fmt.Sprintf(" article=%s", art)
@@ -200,13 +223,13 @@ func legalGenerationChecklist(docs []model.LegalDocument, retrievalQuery string,
 }
 
 // generateResponseWithLLM streams an answer from the configured LLM backend over SSE.
-func generateResponseWithLLM(docs []model.LegalDocument, generationQuery, retrievalQuery, langOverride string, topK int, rewriteQueries []string, c *gin.Context) error {
-	return generateResponseWithStream(docs, generationQuery, retrievalQuery, langOverride, topK, rewriteQueries, newGinStreamWriter(c))
+func generateResponseWithLLM(docs []model.LegalDocument, generationQuery, retrievalQuery, langOverride string, topK int, rewriteQueries []string, extraMeta map[string]string, c *gin.Context) error {
+	return generateResponseWithStream(docs, generationQuery, retrievalQuery, langOverride, topK, rewriteQueries, extraMeta, newGinStreamWriter(c))
 }
 
-func generateResponseWithStream(docs []model.LegalDocument, generationQuery, retrievalQuery, langOverride string, topK int, rewriteQueries []string, w StreamWriter) error {
+func generateResponseWithStream(docs []model.LegalDocument, generationQuery, retrievalQuery, langOverride string, topK int, rewriteQueries []string, extraMeta map[string]string, w StreamWriter) error {
 	queryLang := detectQueryLanguage(generationQuery, langOverride)
-	systemPrompt := ragSystemPrompt(queryLang)
+	systemPrompt := ragSystemPrompt(queryLang, docs)
 	userPrompt := buildRAGUserMessage(docs, generationQuery, retrievalQuery, topK)
 
 	metadata := map[string]string{
@@ -216,6 +239,9 @@ func generateResponseWithStream(docs []model.LegalDocument, generationQuery, ret
 		"provider": string(llmConfig.Provider),
 		"base_url": llmConfig.BaseURL,
 		"lang":     queryLang,
+	}
+	for k, v := range extraMeta {
+		metadata[k] = v
 	}
 	if len(rewriteQueries) > 0 {
 		metadata["rewrite_queries"] = formatRetrievalQueriesDebug(rewriteQueries)

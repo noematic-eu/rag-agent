@@ -21,6 +21,8 @@ type RankOptions struct {
 	Article        string
 	LegalRerank    *bool
 	Lang           string
+	SearchMode     string
+	CRAGMaxRounds  int
 }
 
 func defaultRankOptions(retrievalText string) RankOptions {
@@ -166,6 +168,14 @@ func parseRankOptionsFromParams(retrievalQuery, generationQuery string, params m
 	}
 	if v := strings.TrimSpace(params["legal_rerank"]); v != "" {
 		opts.LegalRerank = parseLegalRerankParam(v)
+	}
+	if v := strings.TrimSpace(params["mode"]); v != "" {
+		opts.SearchMode = v
+	}
+	if v := strings.TrimSpace(params["crag_max_rounds"]); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			opts.CRAGMaxRounds = n
+		}
 	}
 	return opts
 }

@@ -1,5 +1,10 @@
-# Contributor override: build the image locally instead of pulling from GHCR.
-# Usage: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+# Build the image locally instead of pulling from GHCR.
+#
+# Standalone (build + run):
+#   F4KVS_ROOT=~/dev/rust/f4kvs-ffi docker compose -f docker-compose.build.yml up -d --build
+#
+# Override GHCR image in the default stack:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   rag-agent:
     build:
@@ -7,3 +12,22 @@ services:
       dockerfile: Dockerfile
       additional_contexts:
         f4kvs: ${F4KVS_ROOT:?Set F4KVS_ROOT in .env to your local f4kvs-ffi checkout}
+    container_name: rag-agent
+    environment:
+      RAG_LISTEN: ":8080"
+      RAG_DATA_DIR: "/data"
+      RAG_LLM_PROVIDER: "ollama"
+      RAG_LLM_BASE_URL: "http://host.docker.internal:11434"
+      RAG_LLM_MODEL: "qwen2.5:14b-instruct"
+      RAG_EMBEDDING_MODEL: "nomic-embed-text"
+      RAG_LEXICAL_ENGINE: "f4kvs"
+      RAG_CORS_ORIGINS: "${RAG_CORS_ORIGINS:-http://localhost:4321,http://127.0.0.1:4321}"
+    ports:
+      - "8081:8080"
+    volumes:
+      - rag-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  rag-data:

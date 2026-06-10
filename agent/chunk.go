@@ -271,16 +271,21 @@ func sectionExceedsChunkLimit(text string, config ChunkConfig) bool {
 
 func appendTokenSplitChunks(chunks *[]model.Chunk, index *int, docID, title, sectionPath, text string, config ChunkConfig) {
 	for _, chunkText := range splitByTokenCount(text, config) {
-		chunkText = strings.TrimSpace(chunkText)
+		chunkText = strings.TrimSpace(stripCopyrightLines(chunkText))
 		if chunkText == "" {
 			continue
+		}
+		chunkTitle := deriveChunkTitle(title, chunkText, *index)
+		chunkSectionPath := sectionPath
+		if isBoilerplateTitle(title) || chunkTitle != title {
+			chunkSectionPath = buildSectionPath(chunkTitle, *index)
 		}
 		*chunks = append(*chunks, model.Chunk{
 			Metadata: model.ChunkMetadata{
 				DocID:       docID,
 				ChunkID:     fmt.Sprintf("%s-chunk-%d", docID, *index),
-				Title:       title,
-				SectionPath: sectionPath,
+				Title:       chunkTitle,
+				SectionPath: chunkSectionPath,
 				Source:      "markdown",
 				Position:    *index,
 			},
@@ -494,9 +499,11 @@ func ChunkDocument(doc model.LegalDocument, config ChunkConfig) ([]model.Chunk, 
 
 	for i, section := range sections {
 		title, text := sectionDisplayText(section)
+		text = strings.TrimSpace(stripCopyrightLines(text))
 		if text == "" {
 			continue
 		}
+		title = deriveChunkTitle(title, text, i)
 		sectionPath := buildSectionPath(title, i)
 		if sectionExceedsChunkLimit(text, config) {
 			log.Printf("Token-split oversized section %d for document %s", i, doc.ID)

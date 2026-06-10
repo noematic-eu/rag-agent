@@ -8,9 +8,12 @@ Reproducible retrieval and generation grading for rag-agent.
 |------|---------|
 | `fixtures/docs/` | Public sanity corpus (5 markdown files, corpus `eval-public`) |
 | `fixtures/domain/` | Domain-style mini corpus (8 files, corpus `eval-domain`) |
+| `fixtures/business/` | Business PDF-style fixture with copyright boilerplate (corpus `eval-business`) |
 | `gold/public.jsonl` | 16 labeled retrieval cases (CI gate) |
 | `gold/domain.jsonl` | 32 labeled retrieval cases |
-| `gold/legal.jsonl` | 3 labeled Constitution retrieval cases (corpus `legal-demo`) |
+| `gold/legal.jsonl` | 5 labeled Constitution retrieval cases (corpus `legal-demo`) |
+| `gold/multihop.jsonl` | Multi-doc / multi-section retrieval cases for agentic baseline |
+| `gold/business.jsonl` | Generation eval for KB business excerpts (copyright noise regression) |
 | `out/` | Generated reports (gitignored except `.gitkeep`) |
 | `run_ragas.py` | Generation metrics via [RAGAS](https://docs.ragas.io/) |
 
@@ -126,6 +129,18 @@ go run ./client -mode eval-generation \
 ```
 
 Gold rows opt in with `generation_phrases` and `generation_q`.
+
+Optional `-search-mode crag` or `-search-mode agent` on `/search` (see [`docs/agentic-rag.md`](../docs/agentic-rag.md)).
+
+## Agentic baseline (pre-CRAG)
+
+Single-pass retrieval on legal + multi-hop gold:
+
+```bash
+./scripts/eval_agentic_baseline.sh http://127.0.0.1:8080
+```
+
+Requires public + legal corpora ingested (`eval_setup_public.sh`, `eval_setup_legal.sh`).
 
 ## Lexical engine matrix
 

@@ -23,6 +23,7 @@ type GoldCase struct {
 	ExpectedDocIDs        []string            `json:"expected_doc_ids,omitempty"`
 	ExpectedSections      []string            `json:"expected_sections,omitempty"`
 	MatchAllSections      bool                `json:"match_all_sections,omitempty"`
+	MatchAllDocIDs        bool                `json:"match_all_doc_ids,omitempty"`
 	ExcerptTermsBySection map[string][]string `json:"excerpt_terms_by_section,omitempty"`
 	GenerationPhrases     []string            `json:"generation_phrases,omitempty"`
 	ReferenceAnswer       string              `json:"reference_answer,omitempty"`
@@ -399,6 +400,28 @@ func scoreRetrieval(gc GoldCase, hits []retrieveHit, topK int) (hit bool, mrr fl
 		return false, 0
 	}
 
+	if gc.MatchAllDocIDs && len(docSet) > 0 {
+		found := make(map[string]bool, len(gc.ExpectedDocIDs))
+		bestRank := 0
+		for rank, h := range hits {
+			if rank >= topK {
+				break
+			}
+			if _, ok := docSet[h.DocID]; ok {
+				if !found[h.DocID] {
+					found[h.DocID] = true
+					if bestRank == 0 || rank+1 < bestRank {
+						bestRank = rank + 1
+					}
+				}
+			}
+		}
+		if len(found) == len(docSet) {
+			return true, 1.0 / float64(bestRank)
+		}
+		return false, 0
+	}
+
 	for rank, h := range hits {
 		if rank >= topK {
 			break
@@ -497,6 +520,7 @@ type generationEvalConfig struct {
 	MinPass    float64
 	OutputJSON string
 	SetName    string
+	SearchMode string
 }
 
 type generationEvalReport struct {
@@ -533,7 +557,7 @@ func RunGenerationEval(cfg generationEvalConfig) error {
 	var passSum float64
 
 	for _, gc := range genCases {
-		answer, err := callSearch(client, cfg.ServerURL, gc)
+		answer, err := callSearch(client, cfg.ServerURL, gc, cfg.SearchMode)
 		if err != nil {
 			return fmt.Errorf("%s: %w", gc.ID, err)
 		}
@@ -566,7 +590,7 @@ func RunGenerationEval(cfg generationEvalConfig) error {
 	return nil
 }
 
-func callSearch(client *http.Client, server string, gc GoldCase) (string, error) {
+func callSearch(client *http.Client, server string, gc GoldCase, searchMode string) (string, error) {
 	params := url.Values{}
 	params.Set("q", gc.GenerationQ)
 	if gc.RetrievalQ != "" {
@@ -575,6 +599,9 @@ func callSearch(client *http.Client, server string, gc GoldCase) (string, error)
 	params.Set("rewrite", "true")
 	if gc.Corpus != "" {
 		params.Set("corpus", gc.Corpus)
+	}
+	if searchMode != "" {
+		params.Set("mode", searchMode)
 	}
 
 	u := strings.TrimRight(server, "/") + "/search?" + params.Encode()

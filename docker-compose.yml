@@ -17,7 +17,7 @@ services:
   #     retries: 10
 
   rag-agent:
-    image: ghcr.io/noematic-eu/rag-agent:latest
+    image: ghcr.io/noematic-eu/rag-agent:sha-d01b515
     container_name: rag-agent
     # depends_on:            # uncomment when ollama service is enabled above
     #   ollama:
@@ -28,7 +28,7 @@ services:
       RAG_LLM_PROVIDER: "ollama"
       # host.docker.internal resolves to the Mac host from inside Docker
       RAG_LLM_BASE_URL: "http://host.docker.internal:11434"
-      RAG_LLM_MODEL: "qwen2.5:7b-instruct"
+      RAG_LLM_MODEL: "qwen2.5:14b-instruct"
       RAG_EMBEDDING_MODEL: "nomic-embed-text"
       # f4kvs RAM BM25 avoids Bleve bolt merge deadlocks during large bulk ingests (~86k+ chunks).
       RAG_LEXICAL_ENGINE: "f4kvs"

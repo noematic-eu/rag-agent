@@ -59,6 +59,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("opening stores (lexical_engine=%s; large f4kvs indexes may take 1-2 minutes before HTTP listens)", agentCfg.LexicalEngine)
 	if err := openStores(agentCfg); err != nil {
 		log.Fatal("Erreur lors de l'initialisation des stores :", err)
 	}

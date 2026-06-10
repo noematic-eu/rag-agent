@@ -10,8 +10,8 @@ const minChunkChars = 80
 
 // isIndexableChunk returns false for chunks that are too short or title-only.
 func isIndexableChunk(chunk model.Chunk) bool {
-	text := strings.TrimSpace(chunk.Text)
-	if len(text) < minChunkChars {
+	text := strings.TrimSpace(stripCopyrightLines(chunk.Text))
+	if text == "" || len(text) < minChunkChars {
 		return false
 	}
 

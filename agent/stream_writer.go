@@ -12,6 +12,7 @@ type StreamWriter interface {
 	WriteToken(text string) error
 	WriteComplete(response string, metadata map[string]string) error
 	WriteError(err error) error
+	WriteAgentEvent(eventType string, payload map[string]interface{}) error
 }
 
 type ginStreamWriter struct {
@@ -54,6 +55,13 @@ func (w *ginStreamWriter) WriteError(err error) error {
 	return nil
 }
 
+func (w *ginStreamWriter) WriteAgentEvent(eventType string, payload map[string]interface{}) error {
+	payloadJSON, _ := json.Marshal(payload)
+	w.c.SSEvent(eventType, string(payloadJSON))
+	w.c.Writer.Flush()
+	return nil
+}
+
 type bufferStreamWriter struct {
 	metadata map[string]string
 	answer   string
@@ -79,4 +87,8 @@ func (w *bufferStreamWriter) WriteComplete(response string, metadata map[string]
 
 func (w *bufferStreamWriter) WriteError(err error) error {
 	return err
+}
+
+func (w *bufferStreamWriter) WriteAgentEvent(eventType string, payload map[string]interface{}) error {
+	return nil
 }

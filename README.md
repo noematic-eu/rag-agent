@@ -502,6 +502,11 @@ The endpoint supports optional parameters:
 - `article` — filter hits to a legal article number (e.g. `article=7`)
 - `legal_rerank` — `1`/`0` to enable/disable post-retrieval legal article reranking (auto-enabled for `legal-demo` and article-indexed chunks)
 - `lang` — force answer language (`en` or `fr`)
+- `crag=1` or `mode=crag` — Corrective RAG: grade excerpts and re-retrieve up to 2 rounds if context is insufficient
+- `mode=agent` — tool-agent loop (`search_kb`, `get_chunk`, `finish`) after CRAG warm-start; SSE events `grade`, `retrieval_round`, `tool_call`, `tool_result`
+- `crag_max_rounds` — max CRAG re-retrieval rounds (default 2, max 2)
+
+See [`docs/agentic-rag.md`](docs/agentic-rag.md) for architecture and evaluation.
 
 Excerpts sent to the LLM use `book=<filename>` and `section=<heading>` labels when indexed after a re-ingest with the current agent.
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"math"
@@ -30,30 +31,60 @@ func searchDocuments(c *gin.Context) {
 		explicitRetrieval = retrievalText
 	}
 	pipeline := retrievalPipelineFromContext(c, generationText, explicitRetrieval)
-	outcome, rewriteQueries, err := runRetrievalPipeline(pipeline)
+	p := pipeline.params
+	lang := strings.TrimSpace(c.Query("lang"))
+	mode := parseSearchMode(c)
+
+	var (
+		outcome        rankOutcome
+		docs           []model.LegalDocument
+		rewriteQueries []string
+		extraMeta      map[string]string
+		err            error
+		streamWriter   StreamWriter
+	)
+
+	if mode.cragEnabled || mode.agentEnabled {
+		streamWriter = newGinStreamWriter(c)
+		outcome, docs, rewriteQueries, extraMeta, err = runSearchWithAgenticModes(
+			context.Background(), pipeline, generationText, lang, mode, streamWriter,
+		)
+	} else {
+		outcome, rewriteQueries, err = runRetrievalPipeline(pipeline)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur de recherche : " + err.Error()})
 		return
 	}
-	p := pipeline.params
 
-	if outcome.noResults {
-		c.JSON(http.StatusOK, gin.H{"status": "no_results", "message": "Aucun résultat pertinent"})
-		return
+	if !mode.cragEnabled && !mode.agentEnabled {
+		if outcome.noResults {
+			c.JSON(http.StatusOK, gin.H{"status": "no_results", "message": "Aucun résultat pertinent"})
+			return
+		}
+		docs = retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
 	}
 
-	docs := retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
 	if len(docs) == 0 {
 		c.JSON(http.StatusOK, gin.H{"status": "no_results", "message": "Aucun résultat pertinent"})
 		return
 	}
 
-	lang := strings.TrimSpace(c.Query("lang"))
 	retrievalForPrompt := retrievalText
 	if retrievalForPrompt == "" && len(rewriteQueries) > 0 {
 		retrievalForPrompt = strings.Join(rewriteQueries, " ")
 	}
-	if err := generateResponseWithLLM(docs, generationText, retrievalForPrompt, lang, p.topKFinal, rewriteQueries, c); err != nil {
+	if streamWriter != nil {
+		if err := generateResponseWithStream(docs, generationText, retrievalForPrompt, lang, p.topKFinal, rewriteQueries, extraMeta, streamWriter); err != nil {
+			if c.Writer.Written() {
+				writeSSEError(c, err)
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la génération de la réponse : " + err.Error()})
+		}
+		return
+	}
+	if err := generateResponseWithLLM(docs, generationText, retrievalForPrompt, lang, p.topKFinal, rewriteQueries, extraMeta, c); err != nil {
 		if c.Writer.Written() {
 			writeSSEError(c, err)
 			return

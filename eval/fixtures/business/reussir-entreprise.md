@@ -1,0 +1,9 @@
+Toute représentation ou reproduction, intégrale ou partielle, faite sans le consentement de MICRO APPLICATION est illicite (article L122-4 du code de la propriété intellectuelle). Cette représentation ou reproduction illicite constituerait une contrefaçon sanctionnée par les articles L335-2 et suivants du code de la propriété intellectuelle.
+
+Il est donc temps de mesurer vos performances commerciales ! Cette mesure se fait sur deux axes : un axe quantitatif : avons-nous fait assez de propositions compte tenu des objectifs que nous voulons atteindre ? un axe qualitatif : quels sont nos taux de transformation tout au long du cycle de vente ? L'intérêt d'avoir découpé votre vente en différentes étapes est de mesurer votre performance tout au long du cycle de vente.
+
+224 LE GUIDE DES EXPERTS Construire son argumentaire de vente Chapitre 10 Lister les avantages génériques de l'offre. Cette première partie de l'argumentaire doit permettre de recenser tous les bénéfices génériques à acheter votre produit ou votre prestation. Vous allez ainsi pouvoir formaliser et enrichir le savoir-faire commercial de votre entreprise, pour mener des actions de plus en plus efficaces et ainsi développer encore plus vite le chiffre d'affaires de votre petite entreprise.
+
+Comment adapter cette théorie à la réalité de votre entreprise ? Dès que l'étape de découverte des besoins est suffisamment avancée et que vous pouvez chiffrer une proposition, quelles sont les étapes, dans votre activité, qui vous mènent jusqu'à la conclusion ? Voici quelques exemples concrets de cycle de vente : court ou oneshot, moyen, long.
+
+Pour vous guider dans cette réflexion, voici les quatre points à aborder : 1 Votre public : qui est-ce ? 2 Vos objectifs : pour quelles raisons faites-vous cette présentation ? 3 Votre message : quels sont les trois points-clés ? 4 Vos contraintes : de combien de temps disposez-vous ?

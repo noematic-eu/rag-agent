@@ -123,6 +123,7 @@ func excerptText(content, retrievalQuery string, maxLength int) string {
 
 func excerptTextAnchored(content, retrievalQuery string, maxLength int, article string) string {
 	content = stripNeighborContext(strings.TrimSpace(content))
+	content = stripCopyrightLines(content)
 	if content == "" {
 		return ""
 	}

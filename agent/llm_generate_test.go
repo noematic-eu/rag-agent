@@ -8,16 +8,45 @@ import (
 	"github.com/noematic-eu/ai-rag-agent/model"
 )
 
-func TestRagSystemPromptArticleCitations(t *testing.T) {
-	fr := ragSystemPrompt("fr")
-	for _, want := range []string{"article", "section=", "liens logiques", "hors sujet", "analyse", "dissoute", "empêchement", "raisonnement interne"} {
+func TestRagSystemPromptLegalOverlay(t *testing.T) {
+	legalDocs := []model.LegalDocument{{Corpus: "legal-demo", Article: "16", Title: "ARTICLE 16."}}
+	fr := ragSystemPrompt("fr", legalDocs)
+	for _, want := range []string{"article", "liens logiques", "hors sujet", "dissoute", "raisonnement interne"} {
 		if !strings.Contains(strings.ToLower(fr), strings.ToLower(want)) {
-			t.Fatalf("French prompt missing %q: %s", want, fr)
+			t.Fatalf("French legal prompt missing %q: %s", want, fr)
 		}
 	}
-	en := ragSystemPrompt("en")
-	if !strings.Contains(en, "Article 16") && !strings.Contains(en, "article") {
-		t.Fatalf("English prompt should mention article citations: %s", en)
+	en := ragSystemPrompt("en", legalDocs)
+	if !strings.Contains(en, "Article 16") {
+		t.Fatalf("English legal prompt should mention Article 16: %s", en)
+	}
+}
+
+func TestRagSystemPromptGeneralKBOverlay(t *testing.T) {
+	kbDocs := []model.LegalDocument{{Corpus: "kb-business", Title: "Chapitre 4", Content: "vente"}}
+	fr := ragSystemPrompt("fr", kbDocs)
+	if strings.Contains(fr, "dissoute") || strings.Contains(fr, "Article 16") {
+		t.Fatalf("KB prompt should not contain legal-only rules: %s", fr)
+	}
+	for _, want := range []string{"partiellement pertinent", "copyright", "Texte:"} {
+		if !strings.Contains(fr, want) {
+			t.Fatalf("French KB prompt missing %q: %s", want, fr)
+		}
+	}
+}
+
+func TestBuildRAGUserMessageOmitsCopyrightSection(t *testing.T) {
+	docs := []model.LegalDocument{{
+		BookTitle: "Office.2007.Reussir.Votre.Entreprise",
+		Title:     "Toute représentation ou reproduction sans le consentement (article L122-4 du code de la propriété intellectuelle).",
+		Content:   "Chapitre 4 Suivre vos propositions commerciales. Il est donc temps de mesurer vos performances commerciales.",
+	}}
+	msg := buildRAGUserMessage(docs, "réussir en affaires", "affaires", 8)
+	if strings.Contains(strings.ToLower(msg), "propriété intellectuelle") {
+		t.Fatalf("copyright leaked into prompt: %s", msg)
+	}
+	if !strings.Contains(strings.ToLower(msg), "chapitre 4") {
+		t.Fatalf("expected sanitized chapter in section=: %s", msg)
 	}
 }
 
