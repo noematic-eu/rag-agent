@@ -79,8 +79,8 @@ func applyHydeBoost(outcome rankOutcome, generationQuery string, p rankParams) r
 	hydeRanks := make(map[string]int)
 	for i, hit := range vectorHits {
 		hydeRanks[hit.ChunkID] = i + 1
-		outcome.chunksByID[hit.ChunkID] = hit.Chunk
 	}
+	hydrateChunksByID(outcome.chunksByID, vectorHitIDs(vectorHits))
 
 	fused := fuseRRF(existingRanks, hydeRanks)
 	if len(fused) > p.topKFinal {

@@ -16,10 +16,11 @@ const (
 
 // agentConfig holds HTTP listen address and on-disk store locations.
 type agentConfig struct {
-	Listen        string
-	P9Addr        string
-	DataDir       string
-	LexicalEngine string
+	Listen           string
+	P9Addr           string
+	DataDir          string
+	LexicalEngine    string
+	F4KVSLexicalMode string
 }
 
 func (c agentConfig) blevePath() string {
@@ -32,6 +33,14 @@ func (c agentConfig) tantivyPath() string {
 
 func (c agentConfig) chunkStorePath() string {
 	return filepath.Join(c.DataDir, "legal.f4kvs")
+}
+
+func resolveF4KVSLexicalMode(flagValue string) string {
+	raw := strings.TrimSpace(flagValue)
+	if raw == "" {
+		raw = strings.TrimSpace(envOr("RAG_F4KVS_LEXICAL_MODE", lexical.F4KVSLexicalModeDisk))
+	}
+	return lexical.ParseF4KVSLexicalMode(raw)
 }
 
 func resolveLexicalEngine(flagValue string) (string, error) {
@@ -82,5 +91,11 @@ func resolveAgentConfig(addrFlag, p9AddrFlag, dataDirFlag, lexicalEngineFlag str
 		return agentConfig{}, err
 	}
 
-	return agentConfig{Listen: listen, P9Addr: p9Addr, DataDir: dataDir, LexicalEngine: lexEngine}, nil
+	return agentConfig{
+		Listen:           listen,
+		P9Addr:           p9Addr,
+		DataDir:          dataDir,
+		LexicalEngine:    lexEngine,
+		F4KVSLexicalMode: resolveF4KVSLexicalMode(""),
+	}, nil
 }

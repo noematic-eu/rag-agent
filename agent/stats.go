@@ -48,8 +48,9 @@ type ingestStats struct {
 }
 
 type statsSnapshot struct {
-	Manifest      indexManifest `json:"manifest"`
-	Ingest        ingestStats   `json:"ingest"`
+	Manifest      indexManifest     `json:"manifest"`
+	Ingest        ingestStats       `json:"ingest"`
+	LexicalIndex  LexicalIndexStats `json:"lexical_index"`
 	Compatibility struct {
 		Compatible bool     `json:"compatible"`
 		Warnings   []string `json:"warnings,omitempty"`
@@ -211,8 +212,9 @@ func currentStatsSnapshot() statsSnapshot {
 	defer statsState.mu.RUnlock()
 
 	snapshot := statsSnapshot{
-		Manifest: statsState.manifest,
-		Ingest:   statsState.ingest,
+		Manifest:     statsState.manifest,
+		Ingest:       statsState.ingest,
+		LexicalIndex: currentLexicalIndexStats(),
 	}
 
 	warnings := make([]string, 0)

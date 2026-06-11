@@ -9,6 +9,12 @@ import (
 	"github.com/noematic-eu/ai-rag-agent/model"
 )
 
+type agenticSearchOptions struct {
+	initialOutcome *rankOutcome
+	autoDecision   *escalationDecision
+	autoEnabled    bool
+}
+
 type agentTrace struct {
 	Iterations     int      `json:"iterations"`
 	RetrievalCalls int      `json:"retrieval_calls"`
@@ -90,10 +96,21 @@ func runSearchWithAgenticModes(
 	generationQuery, lang string,
 	mode searchModeConfig,
 	w StreamWriter,
+	opts agenticSearchOptions,
 ) (rankOutcome, []model.LegalDocument, []string, map[string]string, error) {
-	outcome, rewriteQueries, err := runRetrievalPipeline(pipeline)
-	if err != nil {
-		return rankOutcome{}, nil, rewriteQueries, nil, err
+	var (
+		outcome        rankOutcome
+		rewriteQueries []string
+		err            error
+	)
+
+	if opts.initialOutcome != nil {
+		outcome = *opts.initialOutcome
+	} else {
+		outcome, rewriteQueries, err = runRetrievalPipeline(pipeline)
+		if err != nil {
+			return rankOutcome{}, nil, rewriteQueries, nil, err
+		}
 	}
 	if outcome.noResults {
 		return outcome, nil, rewriteQueries, nil, nil
@@ -101,6 +118,14 @@ func runSearchWithAgenticModes(
 
 	extraMeta := map[string]string{
 		"search_mode": mode.modeLabel(),
+	}
+	if opts.autoDecision != nil {
+		for k, v := range escalationExtraMeta(mode.requestedLevelLabel(), *opts.autoDecision) {
+			extraMeta[k] = v
+		}
+	} else if mode.level >= searchLevelLinear {
+		extraMeta["search_level"] = strconv.Itoa(mode.level)
+		extraMeta["search_level_requested"] = mode.requestedLevelLabel()
 	}
 
 	emitRound := func(round int, eventType string, payload map[string]interface{}) {
@@ -117,8 +142,12 @@ func runSearchWithAgenticModes(
 		_ = w.WriteAgentEvent(eventType, payload)
 	}
 
+	if opts.autoDecision != nil && w != nil {
+		_ = w.WriteAgentEvent("escalation", escalationPayload(*opts.autoDecision))
+	}
+
+	var cragTrace cragTrace
 	if mode.cragEnabled {
-		var cragTrace cragTrace
 		outcome, cragTrace, err = applyCRAGLoop(ctx, pipeline, outcome, generationQuery, lang, mode.cragMaxRounds, emitRound)
 		if err != nil {
 			return rankOutcome{}, nil, rewriteQueries, extraMeta, err
@@ -132,7 +161,24 @@ func runSearchWithAgenticModes(
 
 	docs := retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
 
-	if mode.agentEnabled {
+	runAgent := mode.agentEnabled
+	if !runAgent && opts.autoEnabled && opts.autoDecision != nil {
+		runAgent = shouldPostCRAGEscalateToAgent(true, *opts.autoDecision, cragTrace)
+		if runAgent {
+			mode.agentEnabled = true
+			mode.level = searchLevelAgent
+			extraMeta["search_level"] = strconv.Itoa(searchLevelAgent)
+			extraMeta["escalation_reason"] = "post_crag_multihop"
+			if w != nil {
+				_ = w.WriteAgentEvent("escalation", map[string]interface{}{
+					"resolved_level": searchLevelAgent,
+					"reason":         "post_crag_multihop",
+				})
+			}
+		}
+	}
+
+	if runAgent {
 		var agentTrace agentTrace
 		docs, agentTrace, err = runAgentSearchLoop(ctx, pipeline, outcome, generationQuery, lang, emitAgent)
 		if err != nil {
@@ -146,5 +192,62 @@ func runSearchWithAgenticModes(
 		return outcome, docs, rewriteQueries, extraMeta, nil
 	}
 
+	return outcome, docs, rewriteQueries, extraMeta, nil
+}
+
+func executeSearch(
+	ctx context.Context,
+	pipeline retrievalPipelineInput,
+	generationQuery, lang string,
+	mode searchModeConfig,
+	w StreamWriter,
+) (rankOutcome, []model.LegalDocument, []string, map[string]string, error) {
+	if mode.autoEnabled {
+		outcome, rewriteQueries, err := runRetrievalPipeline(pipeline)
+		if err != nil {
+			return rankOutcome{}, nil, rewriteQueries, nil, err
+		}
+		if outcome.noResults {
+			return outcome, nil, rewriteQueries, nil, nil
+		}
+
+		decision := decideEscalation(outcome, generationQuery, pipeline.params.topKFinal, mode.escalation)
+		resolved := applyEscalationDecision(mode, decision)
+		resolved.autoEnabled = true
+
+		if resolved.cragEnabled || resolved.agentEnabled {
+			return runSearchWithAgenticModes(ctx, pipeline, generationQuery, lang, resolved, w, agenticSearchOptions{
+				initialOutcome: &outcome,
+				autoDecision:   &decision,
+				autoEnabled:    true,
+			})
+		}
+
+		if w != nil {
+			_ = w.WriteAgentEvent("escalation", escalationPayload(decision))
+		}
+		docs := retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
+		extraMeta := escalationExtraMeta(mode.requestedLevelLabel(), decision)
+		extraMeta["search_mode"] = resolved.modeLabel()
+		return outcome, docs, rewriteQueries, extraMeta, nil
+	}
+
+	if mode.cragEnabled || mode.agentEnabled {
+		return runSearchWithAgenticModes(ctx, pipeline, generationQuery, lang, mode, w, agenticSearchOptions{})
+	}
+
+	outcome, rewriteQueries, err := runRetrievalPipeline(pipeline)
+	if err != nil {
+		return rankOutcome{}, nil, rewriteQueries, nil, err
+	}
+	if outcome.noResults {
+		return outcome, nil, rewriteQueries, nil, nil
+	}
+	docs := retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
+	extraMeta := map[string]string{
+		"search_mode":            mode.modeLabel(),
+		"search_level":           "1",
+		"search_level_requested": mode.requestedLevelLabel(),
+	}
 	return outcome, docs, rewriteQueries, extraMeta, nil
 }

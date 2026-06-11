@@ -18,7 +18,8 @@ func TestF4KVSRamBM25(t *testing.T) {
 		},
 	}
 	b, err := Open(Config{
-		Engine: EngineF4KVS,
+		Engine:           EngineF4KVS,
+		F4KVSLexicalMode: F4KVSLexicalModeRAM,
 		ScanChunks: func(yield func(model.Chunk) error) error {
 			for _, c := range chunks {
 				if err := yield(c); err != nil {

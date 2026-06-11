@@ -35,37 +35,27 @@ func searchDocuments(c *gin.Context) {
 	lang := strings.TrimSpace(c.Query("lang"))
 	mode := parseSearchMode(c)
 
-	var (
-		outcome        rankOutcome
-		docs           []model.LegalDocument
-		rewriteQueries []string
-		extraMeta      map[string]string
-		err            error
-		streamWriter   StreamWriter
-	)
-
-	if mode.cragEnabled || mode.agentEnabled {
-		streamWriter = newGinStreamWriter(c)
-		outcome, docs, rewriteQueries, extraMeta, err = runSearchWithAgenticModes(
-			context.Background(), pipeline, generationText, lang, mode, streamWriter,
-		)
-	} else {
-		outcome, rewriteQueries, err = runRetrievalPipeline(pipeline)
+	if mode.level == searchLevelRetrieve {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "level=0 (retrieve-only) is not supported on /search; use GET /retrieve instead",
+		})
+		return
 	}
+
+	var streamWriter StreamWriter
+	if mode.autoEnabled || mode.cragEnabled || mode.agentEnabled {
+		streamWriter = newGinStreamWriter(c)
+	}
+
+	outcome, docs, rewriteQueries, extraMeta, err := executeSearch(
+		context.Background(), pipeline, generationText, lang, mode, streamWriter,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur de recherche : " + err.Error()})
 		return
 	}
 
-	if !mode.cragEnabled && !mode.agentEnabled {
-		if outcome.noResults {
-			c.JSON(http.StatusOK, gin.H{"status": "no_results", "message": "Aucun résultat pertinent"})
-			return
-		}
-		docs = retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
-	}
-
-	if len(docs) == 0 {
+	if outcome.noResults || len(docs) == 0 {
 		c.JSON(http.StatusOK, gin.H{"status": "no_results", "message": "Aucun résultat pertinent"})
 		return
 	}

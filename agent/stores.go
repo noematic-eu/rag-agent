@@ -30,6 +30,9 @@ func openStores(cfg agentConfig) error {
 		chunkStore = nil
 		return err
 	}
+	if err := maybeMigrateEmbedsFromChunks(); err != nil {
+		return fmt.Errorf("embed migration: %w", err)
+	}
 	if err := loadStatsFromStore(); err != nil {
 		return fmt.Errorf("stats init: %w", err)
 	}
@@ -67,7 +70,7 @@ func maybeCompactChunkStore() error {
 
 func closeStores() error {
 	var err error
-	if lexicalBackend != nil {
+	if lexicalBackend != nil && f4kvsLexicalUsesRAM() {
 		lexical.ClearF4KVSRamIndex(lexicalBackend)
 	}
 	if e := closeLexicalBackend(); e != nil {

@@ -22,7 +22,9 @@ type RankOptions struct {
 	LegalRerank    *bool
 	Lang           string
 	SearchMode     string
+	SearchLevel    string
 	CRAGMaxRounds  int
+	Escalation     escalationConfig
 }
 
 func defaultRankOptions(retrievalText string) RankOptions {
@@ -172,10 +174,34 @@ func parseRankOptionsFromParams(retrievalQuery, generationQuery string, params m
 	if v := strings.TrimSpace(params["mode"]); v != "" {
 		opts.SearchMode = v
 	}
+	if v := strings.TrimSpace(params["level"]); v != "" {
+		opts.SearchLevel = v
+	}
 	if v := strings.TrimSpace(params["crag_max_rounds"]); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			opts.CRAGMaxRounds = n
 		}
 	}
+	opts.Escalation = parseEscalationConfigFromParams(params)
 	return opts
+}
+
+func parseEscalationConfigFromParams(params map[string]string) escalationConfig {
+	cfg := defaultEscalationConfig()
+	if v := strings.TrimSpace(params["auto_min_linear_score"]); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			cfg.minLinearScore = f
+		}
+	}
+	if v := strings.TrimSpace(params["auto_crag_score"]); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			cfg.cragScoreThreshold = f
+		}
+	}
+	if v := strings.TrimSpace(params["auto_dominant_fraction"]); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			cfg.dominantFraction = f
+		}
+	}
+	return cfg
 }

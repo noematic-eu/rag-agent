@@ -73,6 +73,9 @@ func deleteDocumentByID(docID string) (deleted int, corpus string, err error) {
 		if err := chunkStore.Delete("chunk:" + chunkID); err != nil && !errors.Is(err, f4kvs.ErrNotFound) {
 			return deleted, corpus, err
 		}
+		if err := deleteEmbedRecord(chunkID); err != nil {
+			return deleted, corpus, err
+		}
 		deleted++
 	}
 

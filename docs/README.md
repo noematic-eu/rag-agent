@@ -14,3 +14,4 @@ Guides and reference material for ai-rag-agent.
 | [`benchmark-public-eval.md`](benchmark-public-eval.md) | Lexical engine benchmarks |
 | [`releases/v0.1.0-checklist.md`](releases/v0.1.0-checklist.md) | v0.1.0 release checklist |
 | [`F4KVS_LEXICAL_DISK_PLAN.md`](F4KVS_LEXICAL_DISK_PLAN.md) | Design note (f4kvs lexical disk roadmap) |
+| [`disk-architecture.md`](disk-architecture.md) | Option 4: disk-persistent f4kvs key layout |

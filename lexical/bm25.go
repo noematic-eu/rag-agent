@@ -132,6 +132,11 @@ func buildBM25Chunk(f ChunkFields) BM25Chunk {
 	return c
 }
 
+// BuildBM25ChunkForIndex builds BM25 stats for disk indexing.
+func BuildBM25ChunkForIndex(f ChunkFields) BM25Chunk {
+	return buildBM25Chunk(f)
+}
+
 func registerChunkFields(g *BM25Global, chunks *[]BM25Chunk, f ChunkFields) {
 	c := buildBM25Chunk(f)
 	g.registerChunk(c)

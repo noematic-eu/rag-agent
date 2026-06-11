@@ -127,6 +127,31 @@ func (b *f4kvsRamBackend) Close() error {
 	return nil
 }
 
+// ChunkCount returns indexed chunks in the RAM BM25 index.
+func (b *f4kvsRamBackend) ChunkCount() int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return len(b.chunks)
+}
+
+// RebuildF4KVSRam rescans chunks into the RAM BM25 index.
+func RebuildF4KVSRam(b Backend, scan func(yield func(model.Chunk) error) error) error {
+	ram, ok := b.(*f4kvsRamBackend)
+	if !ok {
+		return nil
+	}
+	return ram.rebuild(scan)
+}
+
+// F4KVSRamChunkCount returns RAM index size for the f4kvs backend.
+func F4KVSRamChunkCount(b Backend) int {
+	ram, ok := b.(*f4kvsRamBackend)
+	if !ok {
+		return 0
+	}
+	return ram.ChunkCount()
+}
+
 // ClearF4KVSRamIndex resets the process-wide RAM index (called on POST /reset).
 func ClearF4KVSRamIndex(b Backend) {
 	ram, ok := b.(*f4kvsRamBackend)

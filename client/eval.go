@@ -601,7 +601,11 @@ func callSearch(client *http.Client, server string, gc GoldCase, searchMode stri
 		params.Set("corpus", gc.Corpus)
 	}
 	if searchMode != "" {
-		params.Set("mode", searchMode)
+		if searchMode == "auto" {
+			params.Set("level", "auto")
+		} else {
+			params.Set("mode", searchMode)
+		}
 	}
 
 	u := strings.TrimRight(server, "/") + "/search?" + params.Encode()

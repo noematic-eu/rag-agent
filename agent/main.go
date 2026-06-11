@@ -67,9 +67,10 @@ func main() {
 		log.Printf("f4kvs compaction warning: %v", err)
 	}
 	log.Printf(
-		"data-dir=%s, lexical_engine=%s, f4kvs=%s, http=%s, 9p=%s",
+		"data-dir=%s, lexical_engine=%s, f4kvs_lexical_mode=%s, f4kvs=%s, http=%s, 9p=%s",
 		agentCfg.DataDir,
 		agentCfg.LexicalEngine,
+		agentCfg.F4KVSLexicalMode,
 		agentCfg.chunkStorePath(),
 		agentCfg.Listen,
 		agentCfg.P9Addr,

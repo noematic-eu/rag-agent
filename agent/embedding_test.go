@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -97,7 +98,18 @@ func TestIndexDocumentStoresChunkEmbedding(t *testing.T) {
 	}
 
 	stored := loadStoredChunkByID(t, "embed-doc-chunk-0")
-	if len(stored.Embedding) == 0 {
-		t.Fatal("expected non-empty embedding on stored chunk")
+	if len(stored.Embedding) != 0 {
+		t.Fatal("expected chunk store to omit embedding (stored in embed:*)")
+	}
+	data, err := chunkStore.Get(embedKey("embed-doc-chunk-0"))
+	if err != nil {
+		t.Fatalf("expected embed record: %v", err)
+	}
+	var rec EmbedRecord
+	if err := json.Unmarshal(data, &rec); err != nil {
+		t.Fatalf("decode embed record: %v", err)
+	}
+	if len(rec.Embedding) == 0 {
+		t.Fatal("expected non-empty embedding in embed store")
 	}
 }

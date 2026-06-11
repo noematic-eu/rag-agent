@@ -21,6 +21,7 @@ services:
       RAG_LLM_MODEL: "qwen2.5:14b-instruct"
       RAG_EMBEDDING_MODEL: "nomic-embed-text"
       RAG_LEXICAL_ENGINE: "f4kvs"
+      RAG_F4KVS_LEXICAL_MODE: "disk"
       RAG_CORS_ORIGINS: "${RAG_CORS_ORIGINS:-http://localhost:4321,http://127.0.0.1:4321}"
     ports:
       - "8081:8080"

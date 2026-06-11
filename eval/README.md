@@ -130,7 +130,15 @@ go run ./client -mode eval-generation \
 
 Gold rows opt in with `generation_phrases` and `generation_q`.
 
-Optional `-search-mode crag` or `-search-mode agent` on `/search` (see [`docs/agentic-rag.md`](../docs/agentic-rag.md)).
+Optional `-search-mode crag`, `-search-mode agent`, or `-search-mode auto` on `/search` (see [`docs/agentic-rag.md`](../docs/agentic-rag.md)).
+
+Auto-escalation routing report (no pass/fail threshold):
+
+```bash
+go run ./client -mode eval-escalation \
+  -server http://127.0.0.1:8080 \
+  -gold eval/gold/multihop.jsonl
+```
 
 ## Agentic baseline (pre-CRAG)
 

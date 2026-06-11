@@ -40,9 +40,11 @@ type Backend interface {
 
 // Config opens a lexical backend under DataDir.
 type Config struct {
-	DataDir    string
-	Engine     string
-	ScanChunks func(yield func(model.Chunk) error) error
+	DataDir          string
+	Engine           string
+	F4KVSLexicalMode string
+	KV               KV
+	ScanChunks       func(yield func(model.Chunk) error) error
 }
 
 func (c Config) BlevePath() string   { return filepath.Join(c.DataDir, "legal.bleve") }
@@ -75,7 +77,11 @@ func Open(cfg Config) (Backend, error) {
 	case EngineTantivy:
 		return openTantivy(cfg)
 	case EngineF4KVS:
-		return openF4KVSRam(cfg)
+		mode := ParseF4KVSLexicalMode(cfg.F4KVSLexicalMode)
+		if mode == F4KVSLexicalModeRAM {
+			return openF4KVSRam(cfg)
+		}
+		return openF4KVSDisk(cfg)
 	default:
 		return nil, fmt.Errorf("unsupported engine %q", engine)
 	}

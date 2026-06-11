@@ -79,6 +79,13 @@ func rankChunks(p rankParams) (rankOutcome, error) {
 	if err != nil {
 		return rankOutcome{}, err
 	}
+	if len(lexHits) == 0 {
+		maybeRebuildLexicalIfStale()
+		lexHits, err = lexicalBackend.Search(p.retrievalText, p.corpus, p.topKBM25)
+		if err != nil {
+			return rankOutcome{}, err
+		}
+	}
 
 	bm25Scores := make(map[string]float64)
 	bm25Order := make([]string, 0, len(lexHits))
@@ -109,7 +116,6 @@ func rankChunks(p rankParams) (rankOutcome, error) {
 		}
 		for _, hit := range vectorHits {
 			vectorScores[hit.ChunkID] = hit.Score
-			chunksByID[hit.ChunkID] = hit.Chunk
 			vectorOrder = append(vectorOrder, hit.ChunkID)
 			if hit.Score > maxVector {
 				maxVector = hit.Score

@@ -9,6 +9,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/yuin/goldmark"
 
+	"github.com/noematic-eu/ai-rag-agent/lexical"
 	"github.com/noematic-eu/ai-rag-agent/model"
 )
 
@@ -95,12 +96,19 @@ func indexDocument(doc model.LegalDocument) (int, error) {
 		chunks[i].Text = text
 
 		chunkID := chunks[i].Metadata.ChunkID
-		if err := lexicalBackend.IndexChunk(chunks[i]); err != nil {
-			log.Printf("Erreur lors de l'indexation lexicale du chunk %s : %v", chunkID, err)
-			continue
+		if lexicalBackend != nil && !lexical.F4KVSUsesDiskMode(lexicalBackend) {
+			if err := lexicalBackend.IndexChunk(chunks[i]); err != nil {
+				log.Printf("Erreur lors de l'indexation lexicale du chunk %s : %v", chunkID, err)
+				continue
+			}
 		}
 
 		storeChunkMetadata(chunks[i])
+		if len(chunks[i].Embedding) > 0 {
+			if err := storeEmbedRecord(chunks[i]); err != nil {
+				log.Printf("Erreur stockage embedding chunk %s: %v", chunkID, err)
+			}
+		}
 		indexed++
 		if len(chunks[i].Embedding) > 0 {
 			embeddedChunks++
@@ -124,9 +132,10 @@ func prepareChunkIndexText(raw string) string {
 	return normalizeChunkText(text)
 }
 
-// storeChunkMetadata stocke un chunk dans f4kvs (text + metadata only; no duplicated doc source).
+// storeChunkMetadata stocke un chunk dans f4kvs (text + metadata only; embeddings in embed:*).
 func storeChunkMetadata(chunk model.Chunk) {
 	chunk.Original = ""
+	chunk.Embedding = nil
 	data, err := json.Marshal(chunk)
 	if err != nil {
 		log.Printf("Erreur lors du marshalling du chunk %s : %v", chunk.Metadata.ChunkID, err)

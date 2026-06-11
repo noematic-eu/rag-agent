@@ -3,14 +3,11 @@ package main
 import (
 	"container/heap"
 	"encoding/json"
-
-	"github.com/noematic-eu/ai-rag-agent/model"
 )
 
 type vectorHit struct {
 	ChunkID string
 	Score   float64
-	Chunk   model.Chunk
 }
 
 type vectorHitHeap []vectorHit
@@ -39,13 +36,60 @@ func topKVectorHits(queryEmbedding []float64, k int, corpus string) ([]vectorHit
 	h := &vectorHitHeap{}
 	heap.Init(h)
 
-	pairs, err := chunkStore.ScanPrefix("chunk:")
+	err := scanEmbedRecords(func(rec EmbedRecord) error {
+		if corpus != "" && rec.Corpus != corpus {
+			return nil
+		}
+		score := embeddingCosineSimilarity(queryEmbedding, rec.Embedding)
+		hit := vectorHit{
+			ChunkID: rec.ChunkID,
+			Score:   score,
+		}
+		if h.Len() < k {
+			heap.Push(h, hit)
+			return nil
+		}
+		if score > (*h)[0].Score {
+			(*h)[0] = hit
+			heap.Fix(h, 0)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
+	// Fallback: legacy chunks with inline embeddings before migration completes.
+	if h.Len() == 0 {
+		return topKVectorHitsFromChunks(queryEmbedding, k, corpus)
+	}
+
+	results := make([]vectorHit, h.Len())
+	for i := len(results) - 1; i >= 0; i-- {
+		results[i] = heap.Pop(h).(vectorHit)
+	}
+	return results, nil
+}
+
+func topKVectorHitsFromChunks(queryEmbedding []float64, k int, corpus string) ([]vectorHit, error) {
+	if chunkStore == nil {
+		return nil, nil
+	}
+	h := &vectorHitHeap{}
+	heap.Init(h)
+
+	pairs, err := chunkStore.ScanPrefix("chunk:")
+	if err != nil {
+		return nil, err
+	}
 	for _, pair := range pairs {
-		var chunk model.Chunk
+		var chunk struct {
+			Metadata struct {
+				ChunkID string `json:"chunk_id"`
+				Corpus  string `json:"corpus"`
+			} `json:"metadata"`
+			Embedding []float64 `json:"embedding"`
+		}
 		if err := json.Unmarshal(pair.Value, &chunk); err != nil {
 			continue
 		}
@@ -55,14 +99,8 @@ func topKVectorHits(queryEmbedding []float64, k int, corpus string) ([]vectorHit
 		if corpus != "" && chunk.Metadata.Corpus != corpus {
 			continue
 		}
-
 		score := embeddingCosineSimilarity(queryEmbedding, chunk.Embedding)
-		hit := vectorHit{
-			ChunkID: chunk.Metadata.ChunkID,
-			Score:   score,
-			Chunk:   chunk,
-		}
-
+		hit := vectorHit{ChunkID: chunk.Metadata.ChunkID, Score: score}
 		if h.Len() < k {
 			heap.Push(h, hit)
 			continue
@@ -72,10 +110,17 @@ func topKVectorHits(queryEmbedding []float64, k int, corpus string) ([]vectorHit
 			heap.Fix(h, 0)
 		}
 	}
-
 	results := make([]vectorHit, h.Len())
 	for i := len(results) - 1; i >= 0; i-- {
 		results[i] = heap.Pop(h).(vectorHit)
 	}
 	return results, nil
+}
+
+func vectorHitIDs(hits []vectorHit) []string {
+	ids := make([]string, len(hits))
+	for i, hit := range hits {
+		ids[i] = hit.ChunkID
+	}
+	return ids
 }

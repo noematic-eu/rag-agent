@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -72,13 +73,75 @@ def post_json(
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             return exc.code, body
-        except (TimeoutError, urllib.error.URLError) as exc:
+        except (TimeoutError, urllib.error.URLError, OSError) as exc:
             last_error = str(exc)
             if attempt < retries:
                 print(f"  retry {attempt}/{retries - 1}: {last_error}", file=sys.stderr)
+                time.sleep(min(2**attempt, 30))
                 continue
             return 0, last_error
     return 0, last_error
+
+
+def post_finalize_stream(server: str, *, timeout: int = 7200) -> tuple[bool, str]:
+    """POST /finalize?stream=1 and print SSE progress events."""
+    url = f"{server.rstrip('/')}/finalize?stream=1"
+    req = urllib.request.Request(
+        url,
+        data=b"",
+        headers={"Accept": "text/event-stream"},
+        method="POST",
+    )
+    last_line = ""
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            event = ""
+            for raw in resp:
+                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                last_line = line
+                if line.startswith("event:"):
+                    event = line.split(":", 1)[1].strip()
+                elif line.startswith("data:") and event == "progress":
+                    try:
+                        payload = json.loads(line.split(":", 1)[1].strip())
+                        indexed = payload.get("chunks_indexed", 0)
+                        total = payload.get("chunks_total", 0)
+                        pct = payload.get("percent")
+                        if total:
+                            pct_s = f"{pct:.1f}%" if pct is not None else "?"
+                            print(f"  finalize: {indexed}/{total} ({pct_s})")
+                        else:
+                            print(f"  finalize: {indexed} chunks indexed")
+                    except json.JSONDecodeError:
+                        pass
+                elif line.startswith("data:") and event == "complete":
+                    return True, line.split(":", 1)[1].strip()
+                elif line.startswith("data:") and event == "error":
+                    return False, line.split(":", 1)[1].strip()
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError, TimeoutError) as exc:
+        return False, str(exc)
+    return False, last_line or "finalize stream ended without complete event"
+
+
+def wait_for_server(
+    server: str,
+    *,
+    timeout: int = 180,
+    poll_interval: float = 2.0,
+) -> bool:
+    """Poll GET /stats until the agent HTTP listener is ready."""
+    deadline = time.monotonic() + timeout
+    url = f"{server.rstrip('/')}/stats"
+    while time.monotonic() < deadline:
+        try:
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    return True
+        except (urllib.error.URLError, OSError, TimeoutError):
+            pass
+        time.sleep(poll_interval)
+    return False
 
 
 def purge_documents(
@@ -179,7 +242,7 @@ def main() -> int:
         "--finalize",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Call POST /finalize after ingestion (default: true)",
+        help="Call POST /finalize after ingestion (default: true). Required for RAG_F4KVS_LEXICAL_MODE=disk to build lex:* index.",
     )
     parser.add_argument(
         "--fail-fast",
@@ -234,6 +297,13 @@ def main() -> int:
         action="store_true",
         help="Delete legacy monolith doc IDs for --corpus before ingesting (requires --corpus)",
     )
+    parser.add_argument(
+        "--wait-ready",
+        type=int,
+        default=180,
+        metavar="SECS",
+        help="Wait up to SECS for GET /stats before ingesting (default: 180; 0=skip)",
+    )
     args = parser.parse_args()
 
     if args.replace_corpus and not args.corpora:
@@ -242,6 +312,17 @@ def main() -> int:
     if args.replace_corpus and len(args.corpora) != 1:
         print("error: --replace-corpus supports a single --corpus only", file=sys.stderr)
         return 1
+
+    if not args.dry_run and args.wait_ready > 0:
+        print(f"Waiting for {args.server} (up to {args.wait_ready}s)...")
+        if not wait_for_server(args.server, timeout=args.wait_ready):
+            print(
+                f"error: server not ready after {args.wait_ready}s "
+                f"(check docker logs for 'listening on')",
+                file=sys.stderr,
+            )
+            return 1
+        print("Server ready.")
 
     catalog_path = Path(args.catalog).expanduser().resolve()
     if not catalog_path.is_file():
@@ -390,11 +471,9 @@ def main() -> int:
 
     if args.finalize and not args.dry_run:
         print(f"Finalizing index on {args.server}")
-        status, body = post_json(
-            f"{args.server.rstrip('/')}/finalize", None, timeout=args.timeout
-        )
-        if status != 200:
-            print(f"finalize failed: HTTP {status} {body}", file=sys.stderr)
+        ok, body = post_finalize_stream(args.server, timeout=max(args.timeout, 7200))
+        if not ok:
+            print(f"finalize failed: {body}", file=sys.stderr)
             return 1
         print(body.strip())
 

@@ -97,19 +97,52 @@ func (a *Agent) Retrieve(opts RankOptions) (model.RetrieveResponse, error) {
 }
 
 func searchModeFromOptions(opts RankOptions) searchModeConfig {
-	cfg := searchModeConfig{cragMaxRounds: defaultCRAGMaxRounds}
+	cfg := searchModeConfig{
+		level:         searchLevelLinear,
+		cragMaxRounds: defaultCRAGMaxRounds,
+		escalation:    defaultEscalationConfig(),
+	}
 	if opts.CRAGMaxRounds > 0 {
 		cfg.cragMaxRounds = opts.CRAGMaxRounds
 	}
 	if cfg.cragMaxRounds > maxCRAGMaxRounds {
 		cfg.cragMaxRounds = maxCRAGMaxRounds
 	}
-	switch strings.TrimSpace(strings.ToLower(opts.SearchMode)) {
-	case searchModeCRAG:
+	if opts.Escalation.minLinearScore > 0 || opts.Escalation.cragScoreThreshold > 0 || opts.Escalation.dominantFraction > 0 {
+		cfg.escalation = opts.Escalation
+	}
+
+	level := strings.TrimSpace(strings.ToLower(opts.SearchLevel))
+	if level == "" {
+		level = strings.TrimSpace(strings.ToLower(opts.SearchMode))
+	}
+	switch level {
+	case searchModeAuto:
+		cfg.level = searchLevelAuto
+		cfg.autoEnabled = true
+	case searchModeCRAG, "2":
+		cfg.level = searchLevelCRAG
 		cfg.cragEnabled = true
-	case searchModeAgent:
+	case searchModeAgent, "3":
+		cfg.level = searchLevelAgent
+		cfg.cragEnabled = true
 		cfg.agentEnabled = true
-		cfg.cragEnabled = true
+	case "1":
+		cfg.level = searchLevelLinear
+	case searchModeDefault:
+		cfg.level = searchLevelLinear
+	case "0":
+		cfg.level = searchLevelRetrieve
+	default:
+		switch strings.TrimSpace(strings.ToLower(opts.SearchMode)) {
+		case searchModeCRAG:
+			cfg.level = searchLevelCRAG
+			cfg.cragEnabled = true
+		case searchModeAgent:
+			cfg.level = searchLevelAgent
+			cfg.agentEnabled = true
+			cfg.cragEnabled = true
+		}
 	}
 	return cfg
 }
@@ -130,22 +163,13 @@ func (a *Agent) Search(opts RankOptions, generationQuery string) (SearchResult, 
 	}
 	pipeline := retrievalPipelineFromOptions(opts, generationText, explicitRetrieval)
 	mode := searchModeFromOptions(opts)
-
-	var (
-		outcome        rankOutcome
-		docs           []model.LegalDocument
-		rewriteQueries []string
-		extraMeta      map[string]string
-		err            error
-	)
-
-	if mode.cragEnabled || mode.agentEnabled {
-		outcome, docs, rewriteQueries, extraMeta, err = runSearchWithAgenticModes(
-			context.Background(), pipeline, generationText, opts.Lang, mode, nil,
-		)
-	} else {
-		outcome, rewriteQueries, err = runRetrievalPipeline(pipeline)
+	if mode.level == searchLevelRetrieve {
+		return SearchResult{}, errors.New("level=0 (retrieve-only) is not supported on Search; use Retrieve instead")
 	}
+
+	outcome, docs, rewriteQueries, extraMeta, err := executeSearch(
+		context.Background(), pipeline, generationText, opts.Lang, mode, nil,
+	)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -153,16 +177,7 @@ func (a *Agent) Search(opts RankOptions, generationQuery string) (SearchResult, 
 	if retrievalText == "" && len(rewriteQueries) > 0 {
 		retrievalText = rewriteQueries[0]
 	}
-	if !mode.cragEnabled && !mode.agentEnabled {
-		if outcome.noResults {
-			return SearchResult{
-				Status:  "no_results",
-				Message: "Aucun résultat pertinent",
-			}, nil
-		}
-		docs = retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
-	}
-	if len(docs) == 0 {
+	if outcome.noResults || len(docs) == 0 {
 		return SearchResult{
 			Status:  "no_results",
 			Message: "Aucun résultat pertinent",
@@ -199,9 +214,12 @@ func (a *Agent) Reset() error {
 	return resetStores()
 }
 
-func (a *Agent) Finalize() error {
-	// Legacy no-op: TF-IDF finalize path removed; retrieval uses Bleve + embeddings.
-	return nil
+func (a *Agent) Finalize() (FinalizeResult, error) {
+	return rebuildLexicalFromChunkStore(nil)
+}
+
+func (a *Agent) FinalizeWithProgress(onProgress func(indexed, total int)) (FinalizeResult, error) {
+	return rebuildLexicalFromChunkStore(onProgress)
 }
 
 func (a *Agent) DeleteDocument(docID string) (DeleteResult, error) {
@@ -236,7 +254,7 @@ func (a *Agent) RunCtl(command string) (string, error) {
 		}
 		return "index reset", nil
 	case "finalize":
-		if err := a.Finalize(); err != nil {
+		if _, err := a.Finalize(); err != nil {
 			return "", err
 		}
 		return "finalize ok", nil
