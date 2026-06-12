@@ -221,11 +221,54 @@ func TestF4KVSDiskBackendOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := b.IndexChunk(chunks[0]); err != nil {
+		t.Fatal(err)
+	}
 	hits, err := b.Search("natural selection", "c1", 5)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(hits) == 0 || hits[0].ChunkID != "a-chunk-0" {
 		t.Fatalf("hits: %+v", hits)
+	}
+}
+
+func TestDiskIndexIncrementalRebuild(t *testing.T) {
+	idx := newDiskIndex(newMapKV())
+	chunk := model.Chunk{
+		Metadata: model.ChunkMetadata{ChunkID: "inc-chunk-0", DocID: "inc", Corpus: "c1"},
+		Text:     "incremental rebuild only indexes missing chunks",
+	}
+	if err := idx.IndexChunk(FieldsFromChunk(chunk)); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := idx.RebuildIncrementalFromChunks(func(yield func(model.Chunk) error) error {
+		return yield(chunk)
+	}, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.ChunksIndexed != 0 || stats.ChunksSkipped != 1 {
+		t.Fatalf("expected skip, got %+v", stats)
+	}
+
+	chunk2 := model.Chunk{
+		Metadata: model.ChunkMetadata{ChunkID: "inc-chunk-1", DocID: "inc", Corpus: "c1"},
+		Text:     "second chunk added after first index pass",
+	}
+	stats, err = idx.RebuildIncrementalFromChunks(func(yield func(model.Chunk) error) error {
+		for _, c := range []model.Chunk{chunk, chunk2} {
+			if err := yield(c); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, 2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.ChunksIndexed != 1 || stats.ChunksSkipped != 1 {
+		t.Fatalf("expected one new one skipped, got %+v", stats)
 	}
 }

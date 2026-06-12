@@ -35,6 +35,10 @@ services:
       RAG_F4KVS_LEXICAL_MODE: "disk"
       # Required for the live demo on localhost:4321 (Astro dev / site preview).
       RAG_CORS_ORIGINS: "${RAG_CORS_ORIGINS:-http://localhost:4321,http://127.0.0.1:4321}"
+      # Optional web supplement when KB is insufficient (Wikipedia, then Tavily/Brave).
+      # RAG_WEB_SUPPLEMENT: "1"
+      # RAG_WEB_SEARCH_PROVIDER: "tavily"
+      # RAG_WEB_SEARCH_API_KEY: "${RAG_WEB_SEARCH_API_KEY}"
     # Host 8081 avoids clashing with a native ./bin/agent on 127.0.0.1:8080 (no CORS).
     ports:
       - "8081:8080"

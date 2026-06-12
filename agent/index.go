@@ -9,7 +9,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/yuin/goldmark"
 
-	"github.com/noematic-eu/ai-rag-agent/lexical"
 	"github.com/noematic-eu/ai-rag-agent/model"
 )
 
@@ -96,7 +95,7 @@ func indexDocument(doc model.LegalDocument) (int, error) {
 		chunks[i].Text = text
 
 		chunkID := chunks[i].Metadata.ChunkID
-		if lexicalBackend != nil && !lexical.F4KVSUsesDiskMode(lexicalBackend) {
+		if lexicalBackend != nil {
 			if err := lexicalBackend.IndexChunk(chunks[i]); err != nil {
 				log.Printf("Erreur lors de l'indexation lexicale du chunk %s : %v", chunkID, err)
 				continue

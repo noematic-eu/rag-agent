@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -47,13 +46,13 @@ func setupTestDiskLexical(t *testing.T) {
 	})
 }
 
-func TestIndexDocumentDefersDiskLexical(t *testing.T) {
+func TestIndexDocumentIndexesDiskLexicalAtIngest(t *testing.T) {
 	setupTestDiskLexical(t)
 
 	doc := model.LegalDocument{
 		ID:      "defer-lex-doc",
 		Title:   "Defer Lex",
-		Content: "This document has enough content to produce indexable chunks for testing deferred disk lexical indexing during ingest.",
+		Content: "This document has enough content to produce indexable chunks for testing disk lexical indexing during ingest.",
 		Corpus:  "test-corpus",
 	}
 	n, err := indexDocument(doc)
@@ -68,19 +67,22 @@ func TestIndexDocumentDefersDiskLexical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pairs) != 0 {
-		t.Fatalf("expected no lex:* keys before finalize, got %d", len(pairs))
+	if len(pairs) == 0 {
+		t.Fatal("expected lex:* keys after ingest")
 	}
 
-	result, err := rebuildLexicalFromChunkStore(nil)
+	result, err := rebuildLexicalFromChunkStore(nil, false)
 	if err != nil {
-		t.Fatalf("finalize rebuild: %v", err)
+		t.Fatalf("incremental finalize: %v", err)
 	}
-	if result.ChunksIndexed == 0 {
-		t.Fatalf("expected chunks indexed in finalize, got %+v", result)
+	if result.ChunksIndexed != 0 {
+		t.Fatalf("expected incremental finalize to skip already-indexed chunks, got %+v", result)
+	}
+	if result.ChunksSkipped == 0 {
+		t.Fatalf("expected skipped chunks, got %+v", result)
 	}
 
-	hits, err := lexicalBackend.Search("deferred disk lexical", "test-corpus", 5)
+	hits, err := lexicalBackend.Search("disk lexical indexing", "test-corpus", 5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +188,7 @@ func TestFinalizeStreamAttachToRunningRebuild(t *testing.T) {
 	}
 }
 
-func TestFinalizeReturnsJSON(t *testing.T) {
+func TestFinalizeReturnsAccepted(t *testing.T) {
 	setupTestDatabases(t, t.TempDir(), t.TempDir())
 
 	doc := model.LegalDocument{
@@ -205,15 +207,18 @@ func TestFinalizeReturnsJSON(t *testing.T) {
 	}
 	finalize(c)
 
-	if rr.Code != http.StatusOK {
+	if rr.Code != http.StatusAccepted {
 		t.Fatalf("status %d body %s", rr.Code, rr.Body.String())
 	}
 
-	var resp FinalizeResult
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("unmarshal: %v body %s", err, rr.Body.String())
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if !currentLexicalIndexStats().Rebuilding {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	if resp.Status != "finalized" {
-		t.Fatalf("expected status finalized, got %+v", resp)
+	if currentLexicalIndexStats().Rebuilding {
+		t.Fatal("expected background finalize to complete")
 	}
 }

@@ -26,7 +26,7 @@ func formatParamsText(params map[string]string) string {
 	if len(params) == 0 {
 		return ""
 	}
-	keys := []string{"rq", "retrieval_q", "corpus", "doc_id", "top_k", "bm25_k", "vector_k", "fusion", "min_score", "lang"}
+	keys := []string{"rq", "retrieval_q", "corpus", "doc_id", "top_k", "bm25_k", "vector_k", "fusion", "min_score", "lang", "retrieval_lex", "scan_max_chunks"}
 	var b strings.Builder
 	for _, k := range keys {
 		if v, ok := params[k]; ok && v != "" {

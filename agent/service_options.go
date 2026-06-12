@@ -25,6 +25,8 @@ type RankOptions struct {
 	SearchLevel    string
 	CRAGMaxRounds  int
 	Escalation     escalationConfig
+	RetrievalLex   string
+	ScanMaxChunks  int
 }
 
 func defaultRankOptions(retrievalText string) RankOptions {
@@ -54,6 +56,8 @@ func rankParamsToOptions(p rankParams) RankOptions {
 		MaxPerDoc:     p.maxPerDoc,
 		Article:       p.article,
 		LegalRerank:   p.legalRerank,
+		RetrievalLex:  p.lexicalRetrieval.mode,
+		ScanMaxChunks: p.lexicalRetrieval.scanMaxChunks,
 	}
 }
 
@@ -87,18 +91,19 @@ func rankParamsFromOptions(opts RankOptions) rankParams {
 		minScore = defaultMinScore
 	}
 	return rankParams{
-		retrievalText: opts.RetrievalText,
-		topKBM25:      topKBM25,
-		topKVector:    topKVector,
-		topKFinal:     topKFinal,
-		minScore:      minScore,
-		corpus:        strings.TrimSpace(opts.Corpus),
-		docID:         strings.TrimSpace(opts.DocID),
-		fusionMode:    fusionMode,
-		fusionWeight:  fusionWeight,
-		maxPerDoc:     maxPerDoc,
-		article:       strings.TrimSpace(opts.Article),
-		legalRerank:   opts.LegalRerank,
+		retrievalText:    opts.RetrievalText,
+		topKBM25:         topKBM25,
+		topKVector:       topKVector,
+		topKFinal:        topKFinal,
+		minScore:         minScore,
+		corpus:           strings.TrimSpace(opts.Corpus),
+		docID:            strings.TrimSpace(opts.DocID),
+		fusionMode:       fusionMode,
+		fusionWeight:     fusionWeight,
+		maxPerDoc:        maxPerDoc,
+		article:          strings.TrimSpace(opts.Article),
+		legalRerank:      opts.LegalRerank,
+		lexicalRetrieval: parseLexicalRetrievalFromString(opts.RetrievalLex, opts.ScanMaxChunks),
 	}
 }
 
@@ -183,6 +188,14 @@ func parseRankOptionsFromParams(retrievalQuery, generationQuery string, params m
 		}
 	}
 	opts.Escalation = parseEscalationConfigFromParams(params)
+	if v := strings.TrimSpace(params["retrieval_lex"]); v != "" {
+		opts.RetrievalLex = v
+	}
+	if v := strings.TrimSpace(params["scan_max_chunks"]); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			opts.ScanMaxChunks = n
+		}
+	}
 	return opts
 }
 

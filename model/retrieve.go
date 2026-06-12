@@ -15,7 +15,8 @@ type RetrieveHit struct {
 
 // RetrieveResponse is the JSON body for GET /retrieve.
 type RetrieveResponse struct {
-	Status string        `json:"status"`
-	Hits   []RetrieveHit `json:"hits,omitempty"`
-	Query  string        `json:"query,omitempty"`
+	Status             string        `json:"status"`
+	Hits               []RetrieveHit `json:"hits,omitempty"`
+	Query              string        `json:"query,omitempty"`
+	RetrievalLexSource string        `json:"retrieval_lex_source,omitempty"`
 }

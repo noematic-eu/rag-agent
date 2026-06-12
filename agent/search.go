@@ -47,7 +47,7 @@ func searchDocuments(c *gin.Context) {
 		streamWriter = newGinStreamWriter(c)
 	}
 
-	outcome, docs, rewriteQueries, extraMeta, err := executeSearch(
+	_, docs, rewriteQueries, extraMeta, err := executeSearch(
 		context.Background(), pipeline, generationText, lang, mode, streamWriter,
 	)
 	if err != nil {
@@ -55,7 +55,7 @@ func searchDocuments(c *gin.Context) {
 		return
 	}
 
-	if outcome.noResults || len(docs) == 0 {
+	if len(docs) == 0 {
 		c.JSON(http.StatusOK, gin.H{"status": "no_results", "message": "Aucun résultat pertinent"})
 		return
 	}

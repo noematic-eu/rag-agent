@@ -90,9 +90,10 @@ func (a *Agent) Retrieve(opts RankOptions) (model.RetrieveResponse, error) {
 		}, nil
 	}
 	return model.RetrieveResponse{
-		Status: "ok",
-		Query:  retrievalText,
-		Hits:   outcome.hits,
+		Status:             "ok",
+		Query:              retrievalText,
+		Hits:               outcome.hits,
+		RetrievalLexSource: outcome.lexicalSource,
 	}, nil
 }
 
@@ -215,11 +216,15 @@ func (a *Agent) Reset() error {
 }
 
 func (a *Agent) Finalize() (FinalizeResult, error) {
-	return rebuildLexicalFromChunkStore(nil)
+	return rebuildLexicalFromChunkStore(nil, false)
 }
 
-func (a *Agent) FinalizeWithProgress(onProgress func(indexed, total int)) (FinalizeResult, error) {
-	return rebuildLexicalFromChunkStore(onProgress)
+func (a *Agent) FinalizeFull() (FinalizeResult, error) {
+	return rebuildLexicalFromChunkStore(nil, true)
+}
+
+func (a *Agent) FinalizeWithProgress(onProgress func(indexed, total int), fullRebuild bool) (FinalizeResult, error) {
+	return rebuildLexicalFromChunkStore(onProgress, fullRebuild)
 }
 
 func (a *Agent) DeleteDocument(docID string) (DeleteResult, error) {

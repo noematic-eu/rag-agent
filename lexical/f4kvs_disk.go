@@ -29,12 +29,13 @@ func openF4KVSDisk(cfg Config) (Backend, error) {
 			return nil, err
 		}
 		indexed, _ := idx.ChunkCount()
-		needsRebuild := !idx.HasMeta() || (storeCount >= 100 && indexed < storeCount/2)
-		if needsRebuild {
-			log.Printf("f4kvs lexical: rebuilding disk index (store=%d indexed=%d)", storeCount, indexed)
-			if _, err := idx.RebuildFromChunks(cfg.ScanChunks, storeCount, nil); err != nil {
-				return nil, err
-			}
+		switch {
+		case storeCount == 0:
+			// empty store
+		case !idx.HasMeta() && storeCount > 0:
+			log.Printf("f4kvs lexical: no lex:meta yet (store=%d chunks); index at ingest or POST /finalize (incremental by default)", storeCount)
+		case indexed < storeCount:
+			log.Printf("f4kvs lexical: partial index (store=%d indexed=%d); retrieval_lex=auto uses scan fallback, or POST /finalize for catch-up", storeCount, indexed)
 		}
 	}
 	return b, nil
@@ -68,13 +69,22 @@ func (b *f4kvsDiskBackend) Search(text, corpus string, k int) ([]Hit, error) {
 
 func (b *f4kvsDiskBackend) Close() error { return nil }
 
-// RebuildF4KVSDisk rescans chunks into the on-disk lexical index.
+// RebuildF4KVSDisk rescans all chunks into the on-disk lexical index (wipes lex:* first).
 func RebuildF4KVSDisk(b Backend, scan func(yield func(model.Chunk) error) error, chunksTotal int, onProgress RebuildProgressFunc) (RebuildStats, error) {
 	disk, ok := b.(*f4kvsDiskBackend)
 	if !ok {
 		return RebuildStats{}, nil
 	}
 	return disk.idx.RebuildFromChunks(scan, chunksTotal, onProgress)
+}
+
+// RebuildF4KVSDiskIncremental indexes only chunks missing from lex:* (no lex wipe).
+func RebuildF4KVSDiskIncremental(b Backend, scan func(yield func(model.Chunk) error) error, chunksTotal int, onProgress RebuildProgressFunc) (RebuildStats, error) {
+	disk, ok := b.(*f4kvsDiskBackend)
+	if !ok {
+		return RebuildStats{}, nil
+	}
+	return disk.idx.RebuildIncrementalFromChunks(scan, chunksTotal, onProgress)
 }
 
 // F4KVSDiskChunkCount returns indexed chunks for the disk f4kvs backend.
@@ -94,6 +104,15 @@ func F4KVSDiskChunkCount(b Backend) int {
 func F4KVSUsesDiskMode(b Backend) bool {
 	_, ok := b.(*f4kvsDiskBackend)
 	return ok
+}
+
+// F4KVSIsRebuilding reports whether the disk lexical index is mid-rebuild.
+func F4KVSIsRebuilding(b Backend) bool {
+	disk, ok := b.(*f4kvsDiskBackend)
+	if !ok {
+		return false
+	}
+	return disk.idx.IsRebuilding()
 }
 
 // ParseF4KVSLexicalMode normalizes disk vs ram mode.

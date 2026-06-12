@@ -457,39 +457,72 @@ func (idx *diskIndex) buildCandidateBM25(cm diskChunkMeta, query []string) (BM25
 	return bm25ChunkFromDiskMeta(cm, termFreq), nil
 }
 
+func (idx *diskIndex) chunkLexicallyIndexed(chunkID string) bool {
+	if chunkID == "" {
+		return false
+	}
+	data, err := diskGetOptional(idx.kv, diskChunkKey(chunkID))
+	return err == nil && len(data) > 0
+}
+
 func (idx *diskIndex) RebuildFromChunks(scan func(yield func(model.Chunk) error) error, chunksTotal int, onProgress RebuildProgressFunc) (RebuildStats, error) {
-	idx.mu.Lock()
-	idx.rebuilding.Store(true)
-	defer func() {
-		idx.rebuilding.Store(false)
-		idx.mu.Unlock()
-	}()
+	return idx.rebuildFromChunks(scan, chunksTotal, onProgress, true)
+}
+
+func (idx *diskIndex) RebuildIncrementalFromChunks(scan func(yield func(model.Chunk) error) error, chunksTotal int, onProgress RebuildProgressFunc) (RebuildStats, error) {
+	return idx.rebuildFromChunks(scan, chunksTotal, onProgress, false)
+}
+
+func (idx *diskIndex) rebuildFromChunks(scan func(yield func(model.Chunk) error) error, chunksTotal int, onProgress RebuildProgressFunc, fullRebuild bool) (RebuildStats, error) {
+	mode := "incremental"
+	if fullRebuild {
+		mode = "full"
+	}
 
 	if onProgress != nil {
 		onProgress(0, chunksTotal)
 	}
 
-	if err := idx.deleteAllLexKeys(); err != nil {
-		return RebuildStats{}, err
+	if fullRebuild {
+		// Block search only while wiping lex:*; do not hold the lock for the full rebuild.
+		idx.rebuilding.Store(true)
+		idx.mu.Lock()
+		deleteErr := idx.deleteAllLexKeys()
+		idx.mu.Unlock()
+		idx.rebuilding.Store(false)
+		if deleteErr != nil {
+			return RebuildStats{}, deleteErr
+		}
 	}
 
-	n := 0
+	indexed := 0
+	skipped := 0
+	processed := 0
 	start := time.Now()
 	err := scan(func(chunk model.Chunk) error {
 		f := FieldsFromChunk(chunk)
 		if f.ChunkID == "" || f.Text == "" {
 			return nil
 		}
+		processed++
+		if !fullRebuild && idx.chunkLexicallyIndexed(f.ChunkID) {
+			skipped++
+			if onProgress != nil && (processed <= 10 || processed%500 == 0) {
+				onProgress(processed, chunksTotal)
+			}
+			return nil
+		}
 		bm25 := BuildBM25ChunkForIndex(f)
-		if err := idx.indexBM25ChunkUnlocked(bm25); err != nil {
+		// Per-chunk lock: ingest/search can proceed between chunks.
+		if err := idx.indexBM25Chunk(bm25); err != nil {
 			return err
 		}
-		n++
-		if n%1000 == 0 {
-			log.Printf("f4kvs lexical: rebuild progress %d chunks", n)
+		indexed++
+		if indexed%1000 == 0 {
+			log.Printf("f4kvs lexical: %s rebuild progress %d new (%d skipped)", mode, indexed, skipped)
 		}
-		if onProgress != nil && (n <= 10 || n%100 == 0 || n == chunksTotal) {
-			onProgress(n, chunksTotal)
+		if onProgress != nil && (indexed <= 10 || indexed%100 == 0 || processed == chunksTotal) {
+			onProgress(processed, chunksTotal)
 		}
 		return nil
 	})
@@ -497,7 +530,7 @@ func (idx *diskIndex) RebuildFromChunks(scan func(yield func(model.Chunk) error)
 		return RebuildStats{}, err
 	}
 
-	if n > 0 {
+	if indexed > 0 || fullRebuild {
 		meta, _ := idx.loadMeta()
 		meta.BuiltAt = time.Now().UTC()
 		meta.Version = diskMetaVersion
@@ -505,12 +538,18 @@ func (idx *diskIndex) RebuildFromChunks(scan func(yield func(model.Chunk) error)
 	}
 
 	if onProgress != nil {
-		onProgress(n, chunksTotal)
+		onProgress(processed, chunksTotal)
 	}
 
 	elapsed := time.Since(start)
-	log.Printf("f4kvs lexical: built disk index over %d chunks in %s", n, elapsed.Round(time.Millisecond))
-	return RebuildStats{ChunksIndexed: n, ChunksTotal: chunksTotal, Duration: elapsed}, nil
+	log.Printf("f4kvs lexical: %s rebuild indexed %d skipped %d of %d chunks in %s", mode, indexed, skipped, chunksTotal, elapsed.Round(time.Millisecond))
+	return RebuildStats{
+		ChunksIndexed: indexed,
+		ChunksSkipped: skipped,
+		ChunksTotal:   chunksTotal,
+		Duration:      elapsed,
+		Mode:          mode,
+	}, nil
 }
 
 func (idx *diskIndex) deleteAllLexKeys() error {

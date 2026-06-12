@@ -26,6 +26,7 @@ func rankChunksMulti(queries []string, p rankParams) (rankOutcome, error) {
 	rankLists := make([]map[string]int, 0, len(queries))
 	mergedChunks := make(map[string]model.Chunk)
 	var primaryTopScore float64
+	var lexicalSource string
 
 	for i, q := range queries {
 		qp := p
@@ -35,8 +36,11 @@ func rankChunksMulti(queries []string, p rankParams) (rankOutcome, error) {
 		if err != nil {
 			return rankOutcome{}, err
 		}
-		if i == 0 && len(outcome.hits) > 0 {
-			primaryTopScore = outcome.hits[0].Score
+		if i == 0 {
+			lexicalSource = outcome.lexicalSource
+			if len(outcome.hits) > 0 {
+				primaryTopScore = outcome.hits[0].Score
+			}
 		}
 		for id, chunk := range outcome.chunksByID {
 			mergedChunks[id] = chunk
@@ -101,7 +105,7 @@ func rankChunksMulti(queries []string, p rankParams) (rankOutcome, error) {
 		}
 		return rankOutcome{noResults: true, chunksByID: mergedChunks}, nil
 	}
-	return rankOutcome{hits: hits, chunksByID: mergedChunks}, nil
+	return rankOutcome{hits: hits, chunksByID: mergedChunks, lexicalSource: lexicalSource}, nil
 }
 
 func fuseMultiQueryRRF(rankLists []map[string]int) []chunkScore {

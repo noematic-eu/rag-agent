@@ -113,12 +113,36 @@ func ragGeneralKBOverlay(queryLang string) string {
 		"A partially relevant excerpt still provides useful answer elements even if it does not cover the whole question."
 }
 
+func ragWebOverlay(queryLang string) string {
+	if queryLang == "fr" {
+		return " Certains extraits ont corpus=web et url= : ce sont des sources externes (pas la KB locale). " +
+			"Cite-les avec [n] et mentionne l'URL quand elle est fournie. " +
+			"Ne les présente pas comme des documents ingérés dans la base locale."
+	}
+	return " Some excerpts have corpus=web and url=: they are external sources (not the local KB). " +
+		"Cite them with [n] and mention the URL when provided. " +
+		"Do not present them as documents ingested in the local knowledge base."
+}
+
+func hasWebGenerationDocs(docs []model.LegalDocument) bool {
+	for _, doc := range docs {
+		if doc.Corpus == "web" {
+			return true
+		}
+	}
+	return false
+}
+
 func ragSystemPrompt(queryLang string, docs []model.LegalDocument) string {
 	base := ragBasePrompt(queryLang)
 	if isLegalGenerationDocs(docs) {
 		return base + ragLegalOverlay(queryLang)
 	}
-	return base + ragGeneralKBOverlay(queryLang)
+	prompt := base + ragGeneralKBOverlay(queryLang)
+	if hasWebGenerationDocs(docs) {
+		prompt += ragWebOverlay(queryLang)
+	}
+	return prompt
 }
 
 func isLegalGenerationDocs(docs []model.LegalDocument) bool {
@@ -177,7 +201,17 @@ func buildRAGUserMessage(docs []model.LegalDocument, generationQuery, retrievalQ
 		if art := strings.TrimSpace(doc.Article); art != "" {
 			articleField = fmt.Sprintf(" article=%s", art)
 		}
-		excerpt := fmt.Sprintf("[%d] section=%s%s\nTexte:\n%s\n\n", i+1, sectionPath, articleField, body)
+		urlField := ""
+		if doc.Corpus == "web" {
+			if u := strings.TrimSpace(doc.BookTitle); u != "" {
+				urlField = fmt.Sprintf(" url=%s", u)
+			}
+			sectionPath = "web"
+			if t := strings.TrimSpace(doc.Title); t != "" {
+				sectionPath = "web: " + t
+			}
+		}
+		excerpt := fmt.Sprintf("[%d] section=%s%s%s\nTexte:\n%s\n\n", i+1, sectionPath, articleField, urlField, body)
 		if used+len(excerpt) > maxPromptContextChars {
 			break
 		}

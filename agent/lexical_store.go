@@ -18,7 +18,9 @@ var (
 // FinalizeResult reports the outcome of POST /finalize.
 type FinalizeResult struct {
 	Status        string  `json:"status"`
+	Mode          string  `json:"mode,omitempty"` // incremental (default) or full
 	ChunksIndexed int     `json:"chunks_indexed,omitempty"`
+	ChunksSkipped int     `json:"chunks_skipped,omitempty"`
 	ChunksTotal   int     `json:"chunks_total,omitempty"`
 	DurationSec   float64 `json:"duration_s,omitempty"`
 }
@@ -85,7 +87,7 @@ func countIndexableChunksInStore() (int, error) {
 	return n, err
 }
 
-func rebuildLexicalFromChunkStore(onProgress lexical.RebuildProgressFunc) (FinalizeResult, error) {
+func rebuildLexicalFromChunkStore(onProgress lexical.RebuildProgressFunc, fullRebuild bool) (FinalizeResult, error) {
 	if lexicalBackend == nil || chunkStore == nil {
 		return FinalizeResult{}, fmt.Errorf("stores not open")
 	}
@@ -96,7 +98,11 @@ func rebuildLexicalFromChunkStore(onProgress lexical.RebuildProgressFunc) (Final
 	lexicalRebuildMu.Lock()
 	defer lexicalRebuildMu.Unlock()
 
-	log.Printf("rebuilding f4kvs lexical index from chunk store")
+	mode := "incremental"
+	if fullRebuild {
+		mode = "full"
+	}
+	log.Printf("rebuilding f4kvs lexical index from chunk store (mode=%s)", mode)
 	chunksTotal, err := countIndexableChunksInStore()
 	if err != nil {
 		return FinalizeResult{}, err
@@ -114,15 +120,22 @@ func rebuildLexicalFromChunkStore(onProgress lexical.RebuildProgressFunc) (Final
 	}
 
 	if lexical.F4KVSUsesDiskMode(lexicalBackend) {
-		stats, err := lexical.RebuildF4KVSDisk(lexicalBackend, scanChunksFromStore, chunksTotal, progress)
+		var stats lexical.RebuildStats
+		if fullRebuild {
+			stats, err = lexical.RebuildF4KVSDisk(lexicalBackend, scanChunksFromStore, chunksTotal, progress)
+		} else {
+			stats, err = lexical.RebuildF4KVSDiskIncremental(lexicalBackend, scanChunksFromStore, chunksTotal, progress)
+		}
 		if err != nil {
 			clearLexicalRebuildOnError()
 			return FinalizeResult{}, err
 		}
-		finishLexicalRebuild(stats.ChunksIndexed, stats.ChunksTotal, stats.Duration)
+		finishLexicalRebuild(stats.ChunksIndexed+stats.ChunksSkipped, stats.ChunksTotal, stats.Duration)
 		return FinalizeResult{
 			Status:        "finalized",
+			Mode:          stats.Mode,
 			ChunksIndexed: stats.ChunksIndexed,
+			ChunksSkipped: stats.ChunksSkipped,
 			ChunksTotal:   stats.ChunksTotal,
 			DurationSec:   stats.Duration.Seconds(),
 		}, nil
@@ -149,7 +162,7 @@ func maybeRebuildLexicalIfStale() {
 	if indexed >= expected/2 {
 		return
 	}
-	if _, err := rebuildLexicalFromChunkStore(nil); err != nil {
+	if _, err := rebuildLexicalFromChunkStore(nil, false); err != nil {
 		log.Printf("lexical rebuild failed: %v", err)
 	}
 }

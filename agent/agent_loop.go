@@ -112,13 +112,15 @@ func runSearchWithAgenticModes(
 			return rankOutcome{}, nil, rewriteQueries, nil, err
 		}
 	}
-	if outcome.noResults {
-		return outcome, nil, rewriteQueries, nil, nil
-	}
 
 	extraMeta := map[string]string{
 		"search_mode": mode.modeLabel(),
 	}
+	if outcome.noResults {
+		docs := maybeApplyWebSupplement(ctx, generationQuery, lang, webGapNoResults, nil, nil, extraMeta, w)
+		return outcome, docs, rewriteQueries, extraMeta, nil
+	}
+	applyLexicalSourceMeta(extraMeta, outcome.lexicalSource)
 	if opts.autoDecision != nil {
 		for k, v := range escalationExtraMeta(mode.requestedLevelLabel(), *opts.autoDecision) {
 			extraMeta[k] = v
@@ -189,7 +191,14 @@ func runSearchWithAgenticModes(
 		if len(agentTrace.Actions) > 0 {
 			extraMeta["agent_actions"] = strings.Join(agentTrace.Actions, ",")
 		}
+		if reason, need := detectWebGapAfterAgent(ctx, generationQuery, lang, docs, pipeline.params.topKFinal); need {
+			docs = maybeApplyWebSupplement(ctx, generationQuery, lang, reason, cragTrace.FollowUpQueries, docs, extraMeta, w)
+		}
 		return outcome, docs, rewriteQueries, extraMeta, nil
+	}
+
+	if reason, need := detectWebGapAfterCRAG(cragTrace, mode.cragEnabled); need {
+		docs = maybeApplyWebSupplement(ctx, generationQuery, lang, reason, cragTrace.FollowUpQueries, docs, extraMeta, w)
 	}
 
 	return outcome, docs, rewriteQueries, extraMeta, nil
@@ -208,7 +217,9 @@ func executeSearch(
 			return rankOutcome{}, nil, rewriteQueries, nil, err
 		}
 		if outcome.noResults {
-			return outcome, nil, rewriteQueries, nil, nil
+			extraMeta := map[string]string{"search_mode": mode.modeLabel()}
+			docs := maybeApplyWebSupplement(ctx, generationQuery, lang, webGapNoResults, nil, nil, extraMeta, w)
+			return outcome, docs, rewriteQueries, extraMeta, nil
 		}
 
 		decision := decideEscalation(outcome, generationQuery, pipeline.params.topKFinal, mode.escalation)
@@ -229,6 +240,7 @@ func executeSearch(
 		docs := retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
 		extraMeta := escalationExtraMeta(mode.requestedLevelLabel(), decision)
 		extraMeta["search_mode"] = resolved.modeLabel()
+		applyLexicalSourceMeta(extraMeta, outcome.lexicalSource)
 		return outcome, docs, rewriteQueries, extraMeta, nil
 	}
 
@@ -241,7 +253,13 @@ func executeSearch(
 		return rankOutcome{}, nil, rewriteQueries, nil, err
 	}
 	if outcome.noResults {
-		return outcome, nil, rewriteQueries, nil, nil
+		extraMeta := map[string]string{
+			"search_mode":            mode.modeLabel(),
+			"search_level":           "1",
+			"search_level_requested": mode.requestedLevelLabel(),
+		}
+		docs := maybeApplyWebSupplement(ctx, generationQuery, lang, webGapNoResults, nil, nil, extraMeta, w)
+		return outcome, docs, rewriteQueries, extraMeta, nil
 	}
 	docs := retrieveHitsToDocuments(outcome.hits, outcome.chunksByID)
 	extraMeta := map[string]string{
@@ -249,5 +267,6 @@ func executeSearch(
 		"search_level":           "1",
 		"search_level_requested": mode.requestedLevelLabel(),
 	}
+	applyLexicalSourceMeta(extraMeta, outcome.lexicalSource)
 	return outcome, docs, rewriteQueries, extraMeta, nil
 }

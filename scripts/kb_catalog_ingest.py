@@ -241,8 +241,8 @@ def main() -> int:
     parser.add_argument(
         "--finalize",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Call POST /finalize after ingestion (default: true). Required for RAG_F4KVS_LEXICAL_MODE=disk to build lex:* index.",
+        default=False,
+        help="Call POST /finalize after ingestion (default: false). Disk mode indexes lex:* at ingest; use for catch-up or repair only.",
     )
     parser.add_argument(
         "--fail-fast",

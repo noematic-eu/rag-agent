@@ -25,13 +25,22 @@ All durable RAG state lives in a single `legal.f4kvs/` LSM directory. RAM holds 
 
 ## Startup behavior
 
-1. **Lexical (disk mode):** If `lex:meta` is missing, rebuild once from `chunk:*` (logged, no re-ingest required).
+1. **Lexical (disk mode):** No blocking rebuild on restart. If `lex:meta` is missing or partial, logs a hint; use `retrieval_lex=auto` (default) for scan fallback until the index catches up.
 2. **Embeddings:** If `embed:meta` is missing but chunks contain inline `embedding` fields, migrate to `embed:*` automatically.
+
+## Ingest and lexical index
+
+Disk mode indexes `lex:*` **during each `/ingest`** (incremental per chunk). You do not need a long finalize pass after bulk ingest for search to work.
 
 ## Admin
 
-- `POST /finalize` — rebuild `lex:*` from all chunks (repair or after bulk ingest).
+- `POST /finalize` — incremental catch-up: index chunks missing from `lex:*` (fast, default).
+- `POST /finalize?full=1` — wipe all `lex:*` and rebuild from scratch (slow on large corpora; repair only).
 - `DELETE /documents/:doc_id` — removes `chunk:`, `embed:`, and lexical entries for the document.
+
+## Degraded lexical search
+
+When `lex:*` is missing or rebuilding, set `retrieval_lex=auto` (default) on `/search` or `/retrieve`: the agent falls back to an in-memory BM25 scan over `chunk:*` for the requested corpus. This is slower (O(n)) but does not require a finalized index. Nominal path remains `POST /finalize` then `retrieval_lex=index`.
 
 ## RAM usage
 

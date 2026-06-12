@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -8,19 +9,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// finalize to be called once all documents have been ingested.
+// finalize catches up lex:* for chunks not yet indexed (incremental by default).
+// Use ?full=1 to wipe and rebuild all lex:* keys (slow on large corpora).
 // Use ?stream=1 for SSE progress events (event: progress | complete | error).
+// Rebuild runs in the background so /ingest and /search stay responsive.
 func finalize(c *gin.Context) {
 	if wantsFinalizeStream(c) {
 		finalizeStream(c)
 		return
 	}
-	result, err := ragAgent.Finalize()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "finalize failed: " + err.Error()})
+	if currentLexicalIndexStats().Rebuilding {
+		c.JSON(http.StatusConflict, gin.H{
+			"status":  "rebuilding",
+			"message": "lexical rebuild already in progress; poll GET /stats",
+		})
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	startLexicalRebuildAsync(wantsFullLexicalRebuild(c))
+	c.JSON(http.StatusAccepted, gin.H{
+		"status":  "rebuilding",
+		"message": "lexical rebuild started; poll GET /stats for lexical_index progress",
+	})
 }
 
 func wantsFinalizeStream(c *gin.Context) bool {
@@ -28,6 +37,24 @@ func wantsFinalizeStream(c *gin.Context) bool {
 		return true
 	}
 	return strings.Contains(c.GetHeader("Accept"), "text/event-stream")
+}
+
+func wantsFullLexicalRebuild(c *gin.Context) bool {
+	switch strings.ToLower(strings.TrimSpace(c.Query("full"))) {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
+}
+
+func startLexicalRebuildAsync(fullRebuild bool) {
+	go func() {
+		_, err := rebuildLexicalFromChunkStore(lexicalRebuildProgressCallback(), fullRebuild)
+		if err != nil {
+			log.Printf("finalize: rebuild failed: %v", err)
+		}
+	}()
 }
 
 func finalizeStream(c *gin.Context) {
@@ -39,30 +66,18 @@ func finalizeStream(c *gin.Context) {
 		return
 	}
 
-	// Another request may hold lexicalRebuildMu during pre-count; poll until free or rebuilding.
-	for !lexicalRebuildMu.TryLock() {
-		_ = w.WriteAgentEvent("status", map[string]interface{}{"phase": "waiting"})
-		if stats := currentLexicalIndexStats(); stats.Rebuilding {
-			streamLexicalRebuildAttach(w)
+	startLexicalRebuildAsync(wantsFullLexicalRebuild(c))
+	waitForLexicalRebuildStart()
+	streamLexicalRebuildAttach(w)
+}
+
+func waitForLexicalRebuildStart() {
+	for i := 0; i < 40; i++ {
+		if currentLexicalIndexStats().Rebuilding {
 			return
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
-	lexicalRebuildMu.Unlock()
-
-	result, err := ragAgent.FinalizeWithProgress(func(indexed, total int) {
-		_ = w.WriteAgentEvent("progress", lexicalProgressPayload(indexed, total))
-	})
-	if err != nil {
-		_ = w.WriteError(err)
-		return
-	}
-	_ = w.WriteAgentEvent("complete", map[string]interface{}{
-		"status":         result.Status,
-		"chunks_indexed": result.ChunksIndexed,
-		"chunks_total":   result.ChunksTotal,
-		"duration_s":     result.DurationSec,
-	})
 }
 
 func lexicalProgressPayload(indexed, total int) map[string]interface{} {

@@ -451,7 +451,7 @@ Useful flags:
 - `-mode ingest-dir|demo` (default: `ingest-dir`)
 - `-dir <path>` source directory (required for `ingest-dir`)
 - `-server <url>` API base URL (default: `http://localhost:8080`)
-- `-finalize true|false` call `/finalize` after ingest (default: `true`)
+- `-finalize true|false` call `/finalize` after ingest (default: `false`; disk mode indexes lex at ingest)
 - `-batch-size <n>` progress logging interval (default: `100`)
 - `-reset-before-ingest` wipe Bleve + f4kvs via `POST /reset` before ingesting
 - `-corpus <tag>` optional corpus label for scoped search (`/search?corpus=...`)
@@ -497,6 +497,8 @@ The endpoint supports optional parameters:
 - `max_per_doc` (default: 6 when `corpus` is set, else 1) — max chunks per parent document after fusion. On a single-document corpus (e.g. `legal-demo`), set **`max_per_doc` ≥ `top_k`** or some articles will be dropped
 - `retrieval_q` / `rq` — BM25/vector query (optional; `q` used if omitted; long instructional `q` may be stripped heuristically for retrieval)
 - `fusion` — weighted score in `0..1` (default: `0.6`) or `rrf` for reciprocal rank fusion
+- `retrieval_lex` — lexical source chain (default: `auto`): `index` (disk `lex:*` only), `scan` (BM25 over `chunk:*`, degraded), `index,scan`, or `auto` (index first; scan fallback when index returns 0 hits or is rebuilding). Response metadata / `/retrieve` include `retrieval_lex_source`.
+- `scan_max_chunks` — cap for global scan when `corpus` is unset (default: `5000`; env `RAG_SCAN_MAX_CHUNKS`)
 - `min_score` — minimum hybrid score before calling the LLM (default: `0.2`)
 - `corpus` — filter results to a corpus tag set at ingest time
 - `article` — filter hits to a legal article number (e.g. `article=7`)

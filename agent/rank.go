@@ -12,24 +12,26 @@ import (
 )
 
 type rankParams struct {
-	retrievalText string
-	topKBM25      int
-	topKVector    int
-	topKFinal     int
-	minScore      float64
-	corpus        string
-	docID         string
-	article       string
-	legalRerank   *bool
-	fusionMode    string
-	fusionWeight  float64
-	maxPerDoc     int
+	retrievalText    string
+	topKBM25         int
+	topKVector       int
+	topKFinal        int
+	minScore         float64
+	corpus           string
+	docID            string
+	article          string
+	legalRerank      *bool
+	fusionMode       string
+	fusionWeight     float64
+	maxPerDoc        int
+	lexicalRetrieval lexicalRetrievalConfig
 }
 
 type rankOutcome struct {
-	hits       []model.RetrieveHit
-	chunksByID map[string]model.Chunk
-	noResults  bool
+	hits          []model.RetrieveHit
+	chunksByID    map[string]model.Chunk
+	noResults     bool
+	lexicalSource string
 }
 
 func rankParamsFromContext(c *gin.Context, retrievalText string) rankParams {
@@ -43,18 +45,19 @@ func rankParamsFromContext(c *gin.Context, retrievalText string) rankParams {
 	}
 	fusionMode, fusionWeight := parseFusionParam(c)
 	return rankParams{
-		retrievalText: retrievalText,
-		topKBM25:      intQueryParam(c, "bm25_k", 20),
-		topKVector:    intQueryParam(c, "vector_k", 20),
-		topKFinal:     intQueryParam(c, "top_k", 8),
-		minScore:      floatQueryParam(c, "min_score", defaultMinScore),
-		corpus:        corpus,
-		docID:         docID,
-		article:       strings.TrimSpace(c.Query("article")),
-		legalRerank:   parseLegalRerankParam(c.Query("legal_rerank")),
-		fusionMode:    fusionMode,
-		fusionWeight:  fusionWeight,
-		maxPerDoc:     maxPerDoc,
+		retrievalText:    retrievalText,
+		topKBM25:         intQueryParam(c, "bm25_k", 20),
+		topKVector:       intQueryParam(c, "vector_k", 20),
+		topKFinal:        intQueryParam(c, "top_k", 8),
+		minScore:         floatQueryParam(c, "min_score", defaultMinScore),
+		corpus:           corpus,
+		docID:            docID,
+		article:          strings.TrimSpace(c.Query("article")),
+		legalRerank:      parseLegalRerankParam(c.Query("legal_rerank")),
+		fusionMode:       fusionMode,
+		fusionWeight:     fusionWeight,
+		maxPerDoc:        maxPerDoc,
+		lexicalRetrieval: parseLexicalRetrievalConfig(c),
 	}
 }
 
@@ -75,16 +78,9 @@ func rankChunks(p rankParams) (rankOutcome, error) {
 	if p.corpus != "" && p.maxPerDoc < p.topKFinal {
 		log.Printf("rank: max_per_doc=%d < top_k=%d for corpus=%q; some chunks from the same document may be dropped", p.maxPerDoc, p.topKFinal, p.corpus)
 	}
-	lexHits, err := lexicalBackend.Search(p.retrievalText, p.corpus, p.topKBM25)
+	lexHits, lexicalSource, err := retrieveLexicalHits(p.retrievalText, p.corpus, p.topKBM25, p.lexicalRetrieval)
 	if err != nil {
 		return rankOutcome{}, err
-	}
-	if len(lexHits) == 0 {
-		maybeRebuildLexicalIfStale()
-		lexHits, err = lexicalBackend.Search(p.retrievalText, p.corpus, p.topKBM25)
-		if err != nil {
-			return rankOutcome{}, err
-		}
 	}
 
 	bm25Scores := make(map[string]float64)
@@ -195,7 +191,7 @@ func rankChunks(p rankParams) (rankOutcome, error) {
 	}
 
 	if len(hits) == 0 {
-		return rankOutcome{noResults: true, chunksByID: chunksByID}, nil
+		return rankOutcome{noResults: true, chunksByID: chunksByID, lexicalSource: lexicalSource}, nil
 	}
-	return rankOutcome{hits: hits, chunksByID: chunksByID}, nil
+	return rankOutcome{hits: hits, chunksByID: chunksByID, lexicalSource: lexicalSource}, nil
 }

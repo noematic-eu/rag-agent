@@ -59,6 +59,27 @@ curl -N 'http://127.0.0.1:8081/search?level=auto&corpus=eval-public&q=How+does+h
 
 `level=0` on `/search` returns HTTP 400; use `/retrieve` instead.
 
+## Lexical retrieval sources (`retrieval_lex`)
+
+Hybrid retrieval uses BM25 (lexical) + vectors. Lexical lookup is configurable:
+
+| `retrieval_lex` | Behavior |
+|-----------------|----------|
+| `auto` (default) | `lex:*` index first; if 0 hits or index is rebuilding → BM25 scan over `chunk:*` |
+| `index` | Disk index only |
+| `scan` | Brute BM25 scan (degraded, no `lex:*` required) |
+| `index,scan` | Explicit chain (debug) |
+
+`/search` SSE metadata and `/retrieve` JSON include `retrieval_lex_source` (`index` or `scan`). Disk mode builds `lex:*` at ingest; `POST /finalize` is incremental catch-up (optional). Use `POST /finalize?full=1` only for full repair (slow).
+
+```bash
+# Works even when lex:* is empty (scan fallback)
+curl 'http://127.0.0.1:8081/retrieve?corpus=kb-encyclopedias&rq=French+Revolution&top_k=5'
+
+# Force degraded scan
+curl 'http://127.0.0.1:8081/retrieve?corpus=kb-encyclopedias&retrieval_lex=scan&rq=French+Revolution'
+```
+
 ## Level 2 — CRAG
 
 After the first `runRetrievalPipeline` pass:
@@ -68,6 +89,37 @@ After the first `runRetrievalPipeline` pass:
 3. Merge and dedupe chunks by `chunk_id`, then run the existing generation prompt.
 
 Limits: `crag_max_rounds` query param (default 2, max 2).
+
+## Web supplement (KB gap fallback)
+
+When the local knowledge base is insufficient, optional external sources can fill gaps automatically. Disabled by default; enable with `RAG_WEB_SUPPLEMENT=1`.
+
+**Trigger (auto only, no `?web=1`):**
+
+| Moment | Condition |
+|--------|-----------|
+| After initial retrieve | `no_results` from KB |
+| After CRAG | `crag_sufficient=false` |
+| After agent | Post-agent re-grade still insufficient |
+
+**Source chain:** Wikipedia API first (free, uses request `lang`), then search API if Wikipedia returns nothing.
+
+| Variable | Role |
+|----------|------|
+| `RAG_WEB_SUPPLEMENT` | `1` to enable |
+| `RAG_WEB_SEARCH_PROVIDER` | `tavily` (default) or `brave` |
+| `RAG_WEB_SEARCH_API_KEY` | Required for API fallback |
+| `RAG_WEB_MAX_PAGES` | Max web pages merged per request (default `3`) |
+| `RAG_WEB_MAX_QUERIES` | Max search queries per request (default `2`) |
+| `RAG_WEB_FETCH_ALLOWLIST` | Optional comma-separated host suffixes for URL fetch |
+
+Web excerpts are ephemeral (not ingested). They appear in the generation prompt as `corpus=web` with `url=`. SSE event `web_supplement` and metadata keys `web_supplement`, `web_gap_reason`, `web_provider`, `web_urls` are emitted when active.
+
+```bash
+# Compare query with thin KB — expect web_supplement after CRAG/agent gap
+RAG_WEB_SUPPLEMENT=1 RAG_WEB_SEARCH_API_KEY=tvly-... \
+  curl -N 'http://127.0.0.1:8081/search?level=auto&corpus=kb-encyclopedias&q=Compare+causes+and+consequences+of+the+French+Revolution'
+```
 
 ## Level 3 — Tool agent
 
@@ -150,6 +202,7 @@ sequenceDiagram
 | `agent/agent_loop.go` | Search orchestration, tool-agent loop |
 | `agent/agent_tools.go` | Tool execution handlers |
 | `agent/search_mode.go` | `level`, `mode`, `crag`, tuning params |
+| `agent/web_supplement.go` | Wikipedia + search API fallback when KB gap |
 | `eval/gold/multihop.jsonl` | Multi-doc retrieval gold |
 | `client/eval_escalation.go` | Auto-routing eval report |
 | `scripts/eval_agentic_baseline.sh` | Baseline report script |
