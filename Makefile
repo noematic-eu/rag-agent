@@ -24,7 +24,25 @@ BUILD_TAGS := tantivy
 CGO_LDFLAGS := -L$(CURDIR)/$(LIB_DIR)
 export CGO_LDFLAGS
 
-.PHONY: f4kvs tantivy build test agent client fmt fmt-check install-hooks vet lint test-lite check eval-public eval-domain compare-lexical
+UNAME_M := $(shell uname -m)
+# unikraft.org/base:latest is published for qemu/x86_64 only (catalog, 2026).
+# On arm64 hosts, run the x86_64 unikernel under QEMU software emulation (-W).
+ifeq ($(UNAME_M),arm64)
+UNIKRAFT_ARCH ?= x86_64
+UNIKRAFT_RUN_FLAGS ?= -W
+else ifeq ($(UNAME_M),aarch64)
+UNIKRAFT_ARCH ?= x86_64
+UNIKRAFT_RUN_FLAGS ?= -W
+else ifeq ($(UNAME_M),x86_64)
+UNIKRAFT_ARCH ?= x86_64
+UNIKRAFT_RUN_FLAGS ?=
+else
+$(error unsupported unikraft host arch: $(UNAME_M))
+endif
+UNIKRAFT_MEMORY ?= 512Mi
+UNIKRAFT_PORT ?= 8081:8080
+
+.PHONY: f4kvs tantivy build test agent client fmt fmt-check install-hooks vet lint test-lite check eval-public eval-domain compare-lexical unikraft-prepare unikraft-build unikraft-run
 
 fmt:
 	gofmt -w ./agent ./client ./lexical ./model ./internal
@@ -105,3 +123,17 @@ eval-domain:
 
 compare-lexical:
 	./scripts/compare_lexical_engines.sh
+
+unikraft-check:
+	@chmod +x ./scripts/unikraft_check.sh
+	@./scripts/unikraft_check.sh
+
+unikraft-prepare: unikraft-check
+	./scripts/unikraft_prepare.sh
+
+unikraft-build: unikraft-prepare
+	kraft run --no-start --plat qemu --arch $(UNIKRAFT_ARCH) $(UNIKRAFT_RUN_FLAGS) .
+
+unikraft-run: unikraft-prepare
+	mkdir -p rag-data
+	kraft run --plat qemu --arch $(UNIKRAFT_ARCH) $(UNIKRAFT_RUN_FLAGS) -p $(UNIKRAFT_PORT) -M $(UNIKRAFT_MEMORY) .

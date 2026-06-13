@@ -1,0 +1,22 @@
+spec: v0.6
+name: rag-agent
+runtime: base:latest
+rootfs: ./Dockerfile.unikraft
+cmd: ["/agent"]
+env:
+  RAG_LISTEN: ":8080"
+  RAG_DATA_DIR: "/data"
+  RAG_LLM_PROVIDER: "ollama"
+  RAG_LLM_BASE_URL: "http://10.0.2.2:11434"
+  RAG_LLM_MODEL: "qwen2.5:7b-instruct"
+  RAG_EMBEDDING_MODEL: "nomic-embed-text"
+  RAG_LEXICAL_ENGINE: "f4kvs"
+  RAG_F4KVS_LEXICAL_MODE: "disk"
+  GODEBUG: "netdns=go"
+volumes:
+  - ./rag-data:/data
+targets:
+  - plat: qemu
+    arch: x86_64
+  - plat: qemu
+    arch: arm64

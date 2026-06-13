@@ -4,8 +4,11 @@ legal.db
 legal.f4kvs
 .env
 .env.*
+.unikraft/
 !.env.example
 .deps/
+f4kvs-ffi/
+rag-data/
 bin/
 lib/
 eval/out/*

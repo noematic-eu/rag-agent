@@ -1,0 +1,75 @@
+# syntax=docker/dockerfile:1
+# Unikraft bincompat rootfs (scratch). Prepare f4kvs-ffi first: make unikraft-prepare
+#
+# BuildKit is used by Kraftkit (kraft run / kraft build). Requires Docker Desktop running.
+
+FROM rust:1-bookworm AS f4kvs-lib
+COPY f4kvs-ffi/ /opt/f4kvs-ffi
+WORKDIR /opt/f4kvs-ffi
+RUN cargo build -p f4kvs-ffi --release --target-dir /opt/f4kvs-ffi/target/ffi-release
+
+FROM debian:bookworm-slim AS tantivy-lib
+ARG TARGETARCH
+ARG TANTIVY_VERSION=v1.0.6
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN case "${TARGETARCH}" in \
+      amd64) TANTIVY_PLATFORM=linux-amd64-musl ;; \
+      arm64) TANTIVY_PLATFORM=linux-arm64-musl ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL -o /tmp/tantivy.tar.gz \
+      "https://github.com/anyproto/tantivy-go/releases/download/${TANTIVY_VERSION}/${TANTIVY_PLATFORM}.tar.gz" \
+    && mkdir -p /opt/tantivy/lib \
+    && tar -xzf /tmp/tantivy.tar.gz -C /opt/tantivy/lib \
+    && rm -f /tmp/tantivy.tar.gz
+
+FROM golang:1.25-bookworm AS go-build
+WORKDIR /src
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    binutils \
+    clang \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN mkdir -p lib
+COPY --from=f4kvs-lib /opt/f4kvs-ffi/target/ffi-release/release/libf4kvs_ffi.a lib/
+COPY --from=f4kvs-lib /opt/f4kvs-ffi/target/ffi-release/release/libf4kvs_ffi.so lib/
+COPY --from=tantivy-lib /opt/tantivy/lib/libtantivy_go.a lib/
+
+ENV CGO_ENABLED=1
+ENV CGO_LDFLAGS=-L/src/lib
+# Unikraft app-elfloader requires a position-independent executable (PIE).
+RUN go build \
+    -buildmode=pie \
+    -ldflags "-linkmode external" \
+    -tags "tantivy netgo" \
+    -o /out/agent ./agent \
+    && readelf -h /out/agent | grep -q 'Type:.*DYN'
+
+FROM debian:bookworm-slim AS bundle
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    binutils \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=go-build /out/agent /agent
+COPY --from=f4kvs-lib /opt/f4kvs-ffi/target/ffi-release/release/libf4kvs_ffi.so /lib/libf4kvs_ffi.so
+RUN mkdir -p /src/lib && cp /lib/libf4kvs_ffi.so /src/lib/libf4kvs_ffi.so
+
+COPY scripts/unikraft_bundle_rootfs.sh /usr/local/bin/unikraft_bundle_rootfs.sh
+RUN chmod +x /usr/local/bin/unikraft_bundle_rootfs.sh \
+    && unikraft_bundle_rootfs.sh /rootfs /agent /lib/libf4kvs_ffi.so \
+    && test -f /rootfs/agent \
+    && test -f /rootfs/lib/libf4kvs_ffi.so \
+    && test -f /rootfs/lib64/ld-linux-x86-64.so.2 -o -f /rootfs/lib/ld-linux-aarch64.so.1
+
+FROM scratch
+COPY --from=bundle /rootfs /

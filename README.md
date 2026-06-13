@@ -164,6 +164,17 @@ To build from source instead of pulling, use `docker compose -f docker-compose.y
 
 To populate the agent with the Constitution (`legal-demo`) and eval fixtures (`eval-public`), follow §4 of the quickstart.
 
+## Unikraft (local kraft run)
+
+Run the agent as a Unikraft unikernel with Kraftkit (QEMU on macOS/Linux). Same host port **8081** and `./rag-data` volume as Docker Compose; Ollama on the host via QEMU gateway `10.0.2.2`. On Apple Silicon, runs the `x86_64` catalog base under QEMU software emulation until `base:latest` is available for `arm64`.
+
+```bash
+make unikraft-prepare
+make unikraft-run
+```
+
+Requires Kraftkit and a BuildKit container. Full setup, smoke tests, and troubleshooting: [`docs/unikraft-quickstart.md`](docs/unikraft-quickstart.md).
+
 ## Run the API server
 
 Requires a built agent (see [Build](#build)). From repository root with Ollama defaults:
