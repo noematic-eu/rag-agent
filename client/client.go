@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	docmodel "github.com/noematic-eu/ai-rag-agent/model"
 )
@@ -52,14 +53,42 @@ func (c *Client) Finalize() error {
 	if err != nil {
 		return fmt.Errorf("erreur lors de l'envoi de la requête : %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusAccepted:
+		return c.waitForLexicalRebuild()
+	default:
 		return fmt.Errorf("erreur du serveur (status %d) : %s", resp.StatusCode, string(body))
 	}
+}
 
-	return nil
+func (c *Client) waitForLexicalRebuild() error {
+	deadline := time.Now().Add(10 * time.Minute)
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(c.baseURL + "/stats")
+		if err != nil {
+			return fmt.Errorf("poll stats: %w", err)
+		}
+		var stats struct {
+			LexicalIndex struct {
+				Rebuilding bool `json:"rebuilding"`
+			} `json:"lexical_index"`
+		}
+		decodeErr := json.NewDecoder(resp.Body).Decode(&stats)
+		_ = resp.Body.Close()
+		if decodeErr != nil {
+			return fmt.Errorf("decode stats: %w", decodeErr)
+		}
+		if !stats.LexicalIndex.Rebuilding {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return fmt.Errorf("lexical rebuild timed out after 10 minutes")
 }
 
 // Search effectue une recherche et traite la réponse en streaming
