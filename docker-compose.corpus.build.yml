@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.corpus
+      target: corpus-runtime
       additional_contexts:
         f4kvs: ${F4KVS_ROOT:?Set F4KVS_ROOT in .env to your local f4kvs-ffi checkout}
         f4kvs-lexical: ${F4KVS_LEXICAL_ROOT:?Set F4KVS_LEXICAL_ROOT in .env to your local f4kvs-lexical checkout}

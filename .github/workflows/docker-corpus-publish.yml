@@ -64,6 +64,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.corpus
+          target: corpus-runtime
           build-contexts: |
             f4kvs=./f4kvs-ffi
             f4kvs-lexical=./f4kvs-lexical

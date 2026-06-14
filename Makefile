@@ -42,7 +42,7 @@ endif
 UNIKRAFT_MEMORY ?= 512Mi
 UNIKRAFT_PORT ?= 8081:8080
 
-.PHONY: f4kvs tantivy build test agent client fmt fmt-check install-hooks vet lint test-lite check eval-public eval-domain compare-lexical bake-eval-public bake-legal-demo docker-corpus-build unikraft-prepare unikraft-build unikraft-run
+.PHONY: f4kvs tantivy build test agent client fmt fmt-check install-hooks vet lint test-lite check eval-public eval-domain compare-lexical bake-eval-public bake-legal-demo docker-corpus-build test-docker-entrypoint unikraft-prepare unikraft-build unikraft-run
 
 fmt:
 	gofmt -w ./agent ./client ./lexical ./model ./internal
@@ -134,6 +134,10 @@ bake-legal-demo: agent client
 
 docker-corpus-build:
 	docker compose -f docker-compose.corpus.yml -f docker-compose.corpus.build.yml build
+
+test-docker-entrypoint:
+	chmod +x ./scripts/docker_entrypoint_test.sh
+	./scripts/docker_entrypoint_test.sh
 
 unikraft-check:
 	@chmod +x ./scripts/unikraft_check.sh

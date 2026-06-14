@@ -160,9 +160,16 @@ docker compose up -d
 
 Quickstart, seeding, and smoke-test commands: [`docs/docker-compose-quickstart.md`](docs/docker-compose-quickstart.md).
 
-To build from source instead of pulling, use `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` (requires `F4KVS_ROOT` in `.env`).
+**Corpus-bundled images** ship a pre-built index inside the image (no post-deploy ingest). Pull and run with no volume:
 
-To populate the agent with the Constitution (`legal-demo`) and eval fixtures (`eval-public`), follow §4 of the quickstart.
+```bash
+docker compose -f docker-compose.corpus.yml pull
+docker compose -f docker-compose.corpus.yml up -d
+```
+
+Tags: `corpus-eval-public`, `corpus-legal-demo`. Full guide: [`docs/corpus-images.md`](docs/corpus-images.md).
+
+To build from source instead of pulling, use `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` (requires `F4KVS_ROOT` in `.env`). For corpus images: `make docker-corpus-build` or `docker compose -f docker-compose.corpus.yml -f docker-compose.corpus.build.yml up -d --build`.
 
 ## Unikraft (local kraft run)
 

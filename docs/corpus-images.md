@@ -4,6 +4,60 @@ Ship a **ready-to-run** RAG agent with a pre-built index baked into the image. N
 
 Base agent images (`ghcr.io/noematic-eu/rag-agent:latest`) still ship an empty `/data` tree. Corpus variants add a baked index at `/seed` inside the image.
 
+## Architecture
+
+Build-time ingestion produces on-disk indexes; the runtime image ships only the agent binary and those indexes (no source documents, no `client` binary).
+
+```mermaid
+flowchart LR
+  subgraph buildPhase [Build phase]
+    Docs[Source documents]
+    Ingest[Ingestion pipeline]
+    DBs[Index artifacts]
+    Docs --> Ingest --> DBs
+  end
+
+  subgraph runtimePhase [Runtime image]
+    Agent[agent binary]
+    Indexes[legal.f4kvs etc.]
+    Agent --> Indexes
+  end
+
+  buildPhase -->|COPY only DBs| runtimePhase
+```
+
+Which artifacts are baked depends on build-time options:
+
+| Config | Artifacts baked |
+|--------|-----------------|
+| `RAG_LEXICAL_ENGINE=f4kvs` + `RAG_F4KVS_LEXICAL_MODE=disk` (default) | `legal.f4kvs/` with `chunk:*`, `doc:*`, `meta:*`, `lex:*` |
+| `RAG_DISABLE_EMBEDDINGS=true` (phase 1) | No `embed:*` keys — lexical-only retrieval |
+| `RAG_DISABLE_EMBEDDINGS=false` + Ollama at bake | Also `embed:*` keys for hybrid retrieval |
+| `RAG_LEXICAL_ENGINE=bleve` | `legal.f4kvs/` + `legal.bleve/` |
+| `RAG_LEXICAL_ENGINE=tantivy` | `legal.f4kvs/` + `legal.tantivy/` |
+| `RAG_F4KVS_LEXICAL_MODE=ram` | `legal.f4kvs/` only (lexical index is in-memory; not suitable for baking) |
+
+## Runtime model
+
+The entrypoint implements **Option B**: baked index at `/seed`, optional one-time copy to `/data` when a volume is mounted empty.
+
+```mermaid
+flowchart TD
+  Start[Container start] --> HasSeed{/seed has index?}
+  HasSeed -->|no| RunAgent[Run agent]
+  HasSeed -->|yes| HasData{/data has index?}
+  HasData -->|yes| UseData[RAG_DATA_DIR=/data]
+  HasData -->|no index| IsMount{/data is volume?}
+  IsMount -->|yes empty| Copy[cp /seed to /data]
+  IsMount -->|no| UseSeed[RAG_DATA_DIR=/seed read-only]
+  Copy --> UseData
+  UseData --> RunAgent
+  UseSeed --> RunAgent
+```
+
+- **No volume (default):** `RAG_DATA_DIR` points at read-only `/seed` — no copy, no mount required.
+- **Volume at `/data`:** one-time copy on first boot when the mount is empty, then writable for runtime ingests.
+
 ## Published tags
 
 On each GitHub release, CI publishes:

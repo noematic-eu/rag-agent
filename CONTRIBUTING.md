@@ -57,10 +57,14 @@ The hook blocks commits that include unformatted Go files under `agent/`, `clien
 | `make test` | Full test suite (requires f4kvs) |
 | `make agent` | Build `./bin/agent` |
 | `make client` | Build `./bin/client` (no CGO) |
+| `make bake-eval-public` | Offline bake `eval/fixtures/docs` → `prebuilt/eval-public/` |
+| `make bake-legal-demo` | Offline bake `texts/` → `prebuilt/legal-demo/` |
+| `make docker-corpus-build` | Build corpus Docker image via compose overrides |
+| `make test-docker-entrypoint` | Smoke-test corpus entrypoint seed/copy logic |
 
 ## CI
 
-GitHub Actions runs format checks, lint, lightweight tests, full build/test (with f4kvs-ffi cloned from public GitHub), and retrieval eval on every push and pull request. Docker images are published to GHCR only when a GitHub release is published. No repository secrets are required for f4kvs.
+GitHub Actions runs format checks, lint, lightweight tests, full build/test (with f4kvs-ffi cloned from public GitHub), and retrieval eval on every push and pull request. Docker images are published to GHCR only when a GitHub release is published: base agent (`docker-publish`) and corpus-bundled variants (`docker-corpus-publish`). No repository secrets are required for f4kvs.
 
 ## Build and test
 
