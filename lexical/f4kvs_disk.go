@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/noematic-eu/ai-rag-agent/model"
+	"github.com/noematic-eu/f4kvs-lexical/lexindex"
 )
 
 const (
@@ -14,14 +15,14 @@ const (
 )
 
 type f4kvsDiskBackend struct {
-	idx *diskIndex
+	idx *lexindex.Index
 }
 
 func openF4KVSDisk(cfg Config) (Backend, error) {
 	if cfg.KV == nil {
 		return nil, fmt.Errorf("f4kvs disk lexical requires Config.KV")
 	}
-	idx := newDiskIndex(cfg.KV)
+	idx := lexindex.New(cfg.KV)
 	b := &f4kvsDiskBackend{idx: idx}
 	if cfg.ScanChunks != nil {
 		storeCount, err := countIndexableChunks(cfg.ScanChunks)
@@ -75,7 +76,7 @@ func RebuildF4KVSDisk(b Backend, scan func(yield func(model.Chunk) error) error,
 	if !ok {
 		return RebuildStats{}, nil
 	}
-	return disk.idx.RebuildFromChunks(scan, chunksTotal, onProgress)
+	return disk.idx.RebuildFromChunks(chunkScanFromModel(scan), chunksTotal, onProgress)
 }
 
 // RebuildF4KVSDiskIncremental indexes only chunks missing from lex:* (no lex wipe).
@@ -84,7 +85,7 @@ func RebuildF4KVSDiskIncremental(b Backend, scan func(yield func(model.Chunk) er
 	if !ok {
 		return RebuildStats{}, nil
 	}
-	return disk.idx.RebuildIncrementalFromChunks(scan, chunksTotal, onProgress)
+	return disk.idx.RebuildIncrementalFromChunks(chunkScanFromModel(scan), chunksTotal, onProgress)
 }
 
 // F4KVSDiskChunkCount returns indexed chunks for the disk f4kvs backend.

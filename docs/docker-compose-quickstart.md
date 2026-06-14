@@ -4,6 +4,16 @@ This bundle starts `rag-agent` in Docker for local pilots. By default it uses **
 
 Pre-built images are published to **GHCR** on each GitHub release: `ghcr.io/noematic-eu/rag-agent` (`linux/amd64`, `linux/arm64`). Pin a version tag (e.g. `:v0.1.0`) or use `:latest` for the most recent release.
 
+**Corpus-bundled images** (agent + pre-built index, no seeding step) are also published on release: `corpus-eval-public`, `corpus-legal-demo`. See [`corpus-images.md`](corpus-images.md).
+
+## 0) Zero-seed deploy (corpus image)
+
+```bash
+docker compose -f docker-compose.corpus.yml pull
+docker compose -f docker-compose.corpus.yml up -d
+curl http://127.0.0.1:8081/stats
+```
+
 ## 1) Pull and run
 
 Ensure Ollama is running on the host, then start the agent:
@@ -88,11 +98,12 @@ docker compose down -v
 git clone https://github.com/noematic-eu/f4kvs-ffi.git ~/dev/rust/f4kvs-ffi
 ```
 
-Copy `.env.example` to `.env` and set `F4KVS_ROOT` to that path:
+Copy `.env.example` to `.env` and set `F4KVS_ROOT` and `F4KVS_LEXICAL_ROOT`:
 
 ```bash
 cp .env.example .env
 # edit F4KVS_ROOT=/Users/you/dev/rust/f4kvs-ffi
+# edit F4KVS_LEXICAL_ROOT=../f4kvs-lexical
 ```
 
 Build locally instead of pulling from GHCR:

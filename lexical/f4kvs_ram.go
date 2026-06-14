@@ -6,17 +6,18 @@ import (
 	"sync"
 
 	"github.com/noematic-eu/ai-rag-agent/model"
+	"github.com/noematic-eu/f4kvs-lexical/lexindex"
 )
 
 type f4kvsRamBackend struct {
 	mu     sync.RWMutex
-	global BM25Global
-	chunks []BM25Chunk
+	global lexindex.BM25Global
+	chunks []lexindex.BM25Chunk
 }
 
 func openF4KVSRam(cfg Config) (Backend, error) {
 	b := &f4kvsRamBackend{
-		global: BM25Global{DF: make(map[string]int)},
+		global: lexindex.BM25Global{DF: make(map[string]int)},
 	}
 	if cfg.ScanChunks != nil {
 		if err := b.rebuild(cfg.ScanChunks); err != nil {
@@ -29,16 +30,14 @@ func openF4KVSRam(cfg Config) (Backend, error) {
 func (b *f4kvsRamBackend) Engine() string { return EngineF4KVS }
 
 func (b *f4kvsRamBackend) rebuild(scan func(yield func(model.Chunk) error) error) error {
-	start := len(b.chunks)
-	_ = start
-	g := BM25Global{DF: make(map[string]int)}
-	var chunks []BM25Chunk
+	g := lexindex.BM25Global{DF: make(map[string]int)}
+	var chunks []lexindex.BM25Chunk
 	n := 0
 	err := scan(func(chunk model.Chunk) error {
 		if chunk.Metadata.ChunkID == "" || chunk.Text == "" {
 			return nil
 		}
-		registerChunkFields(&g, &chunks, FieldsFromChunk(chunk))
+		lexindex.RegisterChunkFields(&g, &chunks, FieldsFromChunk(chunk))
 		n++
 		return nil
 	})
@@ -61,7 +60,7 @@ func (b *f4kvsRamBackend) IndexChunk(chunk model.Chunk) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.removeChunkLocked(f.ChunkID)
-	registerChunkFields(&b.global, &b.chunks, f)
+	lexindex.RegisterChunkFields(&b.global, &b.chunks, f)
 	return nil
 }
 
@@ -79,7 +78,7 @@ func (b *f4kvsRamBackend) removeChunkLocked(chunkID string) {
 	filtered := b.chunks[:0]
 	for _, c := range b.chunks {
 		if c.Fields.ChunkID == chunkID {
-			b.global.unregisterChunk(c)
+			b.global.UnregisterChunk(c)
 			continue
 		}
 		filtered = append(filtered, c)
@@ -88,7 +87,7 @@ func (b *f4kvsRamBackend) removeChunkLocked(chunkID string) {
 }
 
 func (b *f4kvsRamBackend) Search(text, corpus string, k int) ([]Hit, error) {
-	query := Tokenize(text)
+	query := lexindex.Tokenize(text)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if len(b.chunks) == 0 {
@@ -103,7 +102,7 @@ func (b *f4kvsRamBackend) Search(text, corpus string, k int) ([]Hit, error) {
 		if corpus != "" && c.Fields.Corpus != corpus {
 			continue
 		}
-		s := ScoreChunkBM25(c, query, &b.global)
+		s := lexindex.ScoreChunkBM25(c, query, &b.global)
 		if s > 0 {
 			scores = append(scores, scored{id: c.Fields.ChunkID, score: s})
 		}
@@ -122,7 +121,7 @@ func (b *f4kvsRamBackend) Search(text, corpus string, k int) ([]Hit, error) {
 func (b *f4kvsRamBackend) Close() error {
 	b.mu.Lock()
 	b.chunks = nil
-	b.global = BM25Global{DF: make(map[string]int)}
+	b.global = lexindex.BM25Global{DF: make(map[string]int)}
 	b.mu.Unlock()
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/noematic-eu/ai-rag-agent/model"
+	"github.com/noematic-eu/f4kvs-lexical/lexindex"
 )
 
 const (
@@ -14,20 +15,29 @@ const (
 	EngineF4KVS   = "f4kvs"
 )
 
-// Field boost weights aligned with Bleve search.go.
+// Re-export field boosts from lexindex for Bleve/Tantivy backends.
 const (
-	BoostText     = 1.0
-	BoostTitle    = 2.0
-	BoostDocTitle = 2.5
-	BoostSection  = 1.5
-	BoostArticle  = 3.0
+	BoostText     = lexindex.BoostText
+	BoostTitle    = lexindex.BoostTitle
+	BoostDocTitle = lexindex.BoostDocTitle
+	BoostSection  = lexindex.BoostSection
+	BoostArticle  = lexindex.BoostArticle
 )
 
-// Hit is one lexical retrieval result.
-type Hit struct {
-	ChunkID string
-	Score   float64
-}
+type (
+	// Hit is one lexical retrieval result.
+	Hit = lexindex.Hit
+	// ChunkFields holds per-field text used for indexing and BM25.
+	ChunkFields = lexindex.ChunkFields
+	// KV is the minimal key-value API for the on-disk lexical index.
+	KV = lexindex.KV
+	// KVPair is a key/value entry from a prefix scan.
+	KVPair = lexindex.KVPair
+	// RebuildStats reports the outcome of a lexical index rebuild.
+	RebuildStats = lexindex.RebuildStats
+	// RebuildProgressFunc is called during rebuild.
+	RebuildProgressFunc = lexindex.RebuildProgressFunc
+)
 
 // Backend indexes and searches chunks lexically.
 type Backend interface {
@@ -87,18 +97,6 @@ func Open(cfg Config) (Backend, error) {
 	}
 }
 
-// ChunkFields holds per-field text used for indexing and BM25.
-type ChunkFields struct {
-	ChunkID  string
-	DocID    string
-	Corpus   string
-	Text     string
-	Title    string
-	DocTitle string
-	Section  string
-	Article  string
-}
-
 // FieldsFromChunk builds index fields from a chunk.
 func FieldsFromChunk(chunk model.Chunk) ChunkFields {
 	section := chunk.Metadata.Title
@@ -114,5 +112,16 @@ func FieldsFromChunk(chunk model.Chunk) ChunkFields {
 		DocTitle: chunk.Metadata.DocTitle,
 		Section:  section,
 		Article:  chunk.Metadata.Article,
+	}
+}
+
+func chunkScanFromModel(scan func(yield func(model.Chunk) error) error) lexindex.ChunkScanFunc {
+	if scan == nil {
+		return nil
+	}
+	return func(yield func(ChunkFields) error) error {
+		return scan(func(c model.Chunk) error {
+			return yield(FieldsFromChunk(c))
+		})
 	}
 }

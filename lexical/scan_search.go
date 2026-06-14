@@ -4,17 +4,18 @@ import (
 	"sort"
 
 	"github.com/noematic-eu/ai-rag-agent/model"
+	"github.com/noematic-eu/f4kvs-lexical/lexindex"
 )
 
 // SearchBM25Scan scores chunks from scan with in-memory BM25 (O(n), no lex:* index).
 func SearchBM25Scan(scan func(yield func(model.Chunk) error) error, text, corpus string, k int, maxChunks int) ([]Hit, error) {
-	query := Tokenize(text)
+	query := lexindex.Tokenize(text)
 	if len(query) == 0 {
 		return nil, nil
 	}
 
-	g := BM25Global{DF: make(map[string]int)}
-	var chunks []BM25Chunk
+	g := lexindex.BM25Global{DF: make(map[string]int)}
+	var chunks []lexindex.BM25Chunk
 	n := 0
 	err := scan(func(chunk model.Chunk) error {
 		f := FieldsFromChunk(chunk)
@@ -27,7 +28,7 @@ func SearchBM25Scan(scan func(yield func(model.Chunk) error) error, text, corpus
 		if maxChunks > 0 && n >= maxChunks {
 			return nil
 		}
-		registerChunkFields(&g, &chunks, f)
+		lexindex.RegisterChunkFields(&g, &chunks, f)
 		n++
 		return nil
 	})
@@ -44,7 +45,7 @@ func SearchBM25Scan(scan func(yield func(model.Chunk) error) error, text, corpus
 	}
 	scores := make([]scored, 0, len(chunks))
 	for _, c := range chunks {
-		s := ScoreChunkBM25(c, query, &g)
+		s := lexindex.ScoreChunkBM25(c, query, &g)
 		if s > 0 {
 			scores = append(scores, scored{id: c.Fields.ChunkID, score: s})
 		}

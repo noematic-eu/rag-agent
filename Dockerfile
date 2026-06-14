@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-# f4kvs-ffi is supplied as an additional build context:
+# f4kvs-ffi and f4kvs-lexical are supplied as additional build contexts:
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-#   docker build --build-context f4kvs=./f4kvs-ffi .
+#   docker build --build-context f4kvs=./f4kvs-ffi --build-context f4kvs-lexical=../f4kvs-lexical .
 
 # Debian apt rustc is too old for f4kvs transitive deps (edition 2024).
 FROM rust:1-bookworm AS f4kvs-lib
@@ -35,6 +35,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
+# go.mod replace => ../f4kvs-lexical (sibling of /src)
+COPY --from=f4kvs-lexical . /f4kvs-lexical
 RUN go mod download
 
 COPY . .

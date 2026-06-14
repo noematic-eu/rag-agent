@@ -4,7 +4,21 @@ lib/
 bin/
 dist/
 eval/out/
-legal.*
-*.md
 docs/
 .github/
+
+# Local dev indexes at repo root (allow prebuilt/** below).
+legal.f4kvs/
+legal.bleve/
+legal.tantivy/
+legal.db
+legal.*
+
+# Repo markdown; allow corpus source trees used by Dockerfile.corpus ingest bake.
+*.md
+!eval/fixtures/**/*.md
+!texts/**/*.md
+
+# Offline-baked index trees (produced by scripts/bake_corpus_data.sh).
+!prebuilt/
+!prebuilt/**

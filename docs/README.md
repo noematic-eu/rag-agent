@@ -8,6 +8,7 @@ Guides and reference material for ai-rag-agent.
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Contributors, Makefile, CI |
 | [`../eval/README.md`](../eval/README.md) | Retrieval eval, gold sets, RAGAS |
 | [`docker-compose-quickstart.md`](docker-compose-quickstart.md) | Docker Compose stack with Ollama |
+| [`corpus-images.md`](corpus-images.md) | Corpus-bundled Docker images (agent + baked index) |
 | [`unikraft-quickstart.md`](unikraft-quickstart.md) | Local Unikraft unikernel via Kraftkit |
 | [`kb-ingest.md`](kb-ingest.md) | KB catalog graded ingest (`~/kb`) |
 | [`agentic-rag.md`](agentic-rag.md) | Agentic RAG modes (CRAG, tool agent) |

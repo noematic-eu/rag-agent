@@ -1,4 +1,4 @@
-name: docker-publish
+name: docker-corpus-publish
 
 on:
   release:
@@ -16,6 +16,16 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - corpus_name: eval-public
+            corpus_src: eval/fixtures/docs
+            corpus_tag: eval-public
+          - corpus_name: legal-demo
+            corpus_src: texts
+            corpus_tag: legal-demo
     steps:
       - uses: actions/checkout@v6
         with:
@@ -46,16 +56,14 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest
+            type=raw,value=corpus-${{ matrix.corpus_name }}
+            type=raw,value=corpus-${{ matrix.corpus_name }}-{{tag}}
 
-      - name: Build and push
+      - name: Build and push corpus image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.corpus
           build-contexts: |
             f4kvs=./f4kvs-ffi
             f4kvs-lexical=./f4kvs-lexical
@@ -63,5 +71,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: |
+            CORPUS_NAME=${{ matrix.corpus_name }}
+            CORPUS_SRC=${{ matrix.corpus_src }}
+            CORPUS_TAG=${{ matrix.corpus_tag }}
+            BAKE_MODE=ingest
+            DISABLE_EMBEDDINGS=true
+          cache-from: type=gha,scope=corpus-${{ matrix.corpus_name }}
+          cache-to: type=gha,mode=max,scope=corpus-${{ matrix.corpus_name }}

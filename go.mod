@@ -9,6 +9,7 @@ require (
 	github.com/blevesearch/bleve/v2 v2.6.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/knusbaum/go9p v1.18.0
+	github.com/noematic-eu/f4kvs-lexical v0.1.0
 	github.com/yuin/goldmark v1.8.2
 )
 
@@ -71,3 +72,5 @@ require (
 	golang.org/x/text v0.35.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
+
+replace github.com/noematic-eu/f4kvs-lexical => ../f4kvs-lexical

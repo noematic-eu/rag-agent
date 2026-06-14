@@ -9,6 +9,8 @@ legal.f4kvs
 .deps/
 f4kvs-ffi/
 rag-data/
+prebuilt/*
+!prebuilt/.gitkeep
 bin/
 lib/
 eval/out/*

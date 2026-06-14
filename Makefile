@@ -42,7 +42,7 @@ endif
 UNIKRAFT_MEMORY ?= 512Mi
 UNIKRAFT_PORT ?= 8081:8080
 
-.PHONY: f4kvs tantivy build test agent client fmt fmt-check install-hooks vet lint test-lite check eval-public eval-domain compare-lexical unikraft-prepare unikraft-build unikraft-run
+.PHONY: f4kvs tantivy build test agent client fmt fmt-check install-hooks vet lint test-lite check eval-public eval-domain compare-lexical bake-eval-public bake-legal-demo docker-corpus-build unikraft-prepare unikraft-build unikraft-run
 
 fmt:
 	gofmt -w ./agent ./client ./lexical ./model ./internal
@@ -123,6 +123,17 @@ eval-domain:
 
 compare-lexical:
 	./scripts/compare_lexical_engines.sh
+
+bake-eval-public: agent client
+	chmod +x ./scripts/bake_corpus_data.sh
+	./scripts/bake_corpus_data.sh --name eval-public --src eval/fixtures/docs --corpus eval-public --reset --disable-embeddings
+
+bake-legal-demo: agent client
+	chmod +x ./scripts/bake_corpus_data.sh
+	./scripts/bake_corpus_data.sh --name legal-demo --src texts --corpus legal-demo --reset --disable-embeddings
+
+docker-corpus-build:
+	docker compose -f docker-compose.corpus.yml -f docker-compose.corpus.build.yml build
 
 unikraft-check:
 	@chmod +x ./scripts/unikraft_check.sh

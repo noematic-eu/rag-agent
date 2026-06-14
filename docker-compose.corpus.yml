@@ -1,0 +1,38 @@
+# Corpus-bundled RAG agent: agent + pre-built index, no post-deploy seeding.
+#
+# Pull a published corpus image (after release):
+#   docker compose -f docker-compose.corpus.yml pull
+#   docker compose -f docker-compose.corpus.yml up -d
+#
+# Build locally (ingest bake from in-repo fixtures):
+#   F4KVS_ROOT=~/dev/rust/f4kvs-ffi docker compose -f docker-compose.corpus.yml -f docker-compose.corpus.build.yml up -d --build
+#
+# Switch corpus via CORPUS_NAME / CORPUS_SRC in docker-compose.corpus.build.yml or:
+#   CORPUS_NAME=legal-demo CORPUS_SRC=texts docker compose -f docker-compose.corpus.yml -f docker-compose.corpus.build.yml up -d --build
+
+services:
+  rag-agent:
+    image: ghcr.io/noematic-eu/rag-agent:corpus-eval-public
+    container_name: rag-agent-corpus
+    environment:
+      RAG_LISTEN: ":8080"
+      RAG_DATA_DIR: "/data"
+      RAG_LLM_PROVIDER: "ollama"
+      RAG_LLM_BASE_URL: "http://host.docker.internal:11434"
+      RAG_LLM_MODEL: "qwen2.5:14b-instruct"
+      RAG_EMBEDDING_MODEL: "nomic-embed-text"
+      RAG_LEXICAL_ENGINE: "f4kvs"
+      RAG_F4KVS_LEXICAL_MODE: "disk"
+      RAG_DISABLE_EMBEDDINGS: "true"
+      RAG_CORS_ORIGINS: "${RAG_CORS_ORIGINS:-http://localhost:4321,http://127.0.0.1:4321}"
+    ports:
+      - "8081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # No volume required: index is baked at /seed (immutable deploy).
+    # Uncomment to persist runtime ingests or overlay a writable data dir:
+    # volumes:
+    #   - rag-data:/data
+
+# volumes:
+#   rag-data:

@@ -1,0 +1,150 @@
+# syntax=docker/dockerfile:1
+# Corpus-bundled RAG agent image (agent + baked index at /seed).
+#
+# Build (ingest bake from in-repo fixtures):
+#   docker build -f Dockerfile.corpus \
+#     --build-context f4kvs=./f4kvs-ffi \
+#     --build-context f4kvs-lexical=../f4kvs-lexical \
+#     --build-arg CORPUS_NAME=eval-public \
+#     --build-arg BAKE_MODE=ingest \
+#     --build-arg CORPUS_SRC=eval/fixtures/docs \
+#     -t rag-agent:corpus-eval-public .
+#
+# Build (prebuilt data dir from scripts/bake_corpus_data.sh):
+#   make bake-eval-public
+#   docker build -f Dockerfile.corpus --build-context f4kvs=./f4kvs-ffi \
+#     --build-arg CORPUS_NAME=eval-public \
+#     --build-arg BAKE_MODE=prebuilt \
+#     -t rag-agent:corpus-eval-public .
+
+ARG CORPUS_NAME=eval-public
+ARG CORPUS_TAG=
+ARG CORPUS_SRC=eval/fixtures/docs
+ARG BAKE_MODE=ingest
+ARG DISABLE_EMBEDDINGS=true
+
+FROM rust:1-bookworm AS f4kvs-lib
+COPY --from=f4kvs . /opt/f4kvs-ffi
+WORKDIR /opt/f4kvs-ffi
+RUN cargo build -p f4kvs-ffi --release --target-dir /opt/f4kvs-ffi/target/ffi-release
+
+FROM debian:bookworm-slim AS tantivy-lib
+ARG TARGETARCH
+ARG TANTIVY_VERSION=v1.0.6
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN case "${TARGETARCH}" in \
+      amd64) TANTIVY_PLATFORM=linux-amd64-musl ;; \
+      arm64) TANTIVY_PLATFORM=linux-arm64-musl ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL -o /tmp/tantivy.tar.gz \
+      "https://github.com/anyproto/tantivy-go/releases/download/${TANTIVY_VERSION}/${TANTIVY_PLATFORM}.tar.gz" \
+    && mkdir -p /opt/tantivy/lib \
+    && tar -xzf /tmp/tantivy.tar.gz -C /opt/tantivy/lib \
+    && rm -f /tmp/tantivy.tar.gz
+
+FROM golang:1.25-bookworm AS go-build
+WORKDIR /src
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    clang \
+    pkg-config \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY go.mod go.sum ./
+# go.mod replace => ../f4kvs-lexical (sibling of /src)
+COPY --from=f4kvs-lexical . /f4kvs-lexical
+RUN go mod download
+
+COPY . .
+
+RUN mkdir -p lib
+COPY --from=f4kvs-lib /opt/f4kvs-ffi/target/ffi-release/release/libf4kvs_ffi.a lib/
+COPY --from=f4kvs-lib /opt/f4kvs-ffi/target/ffi-release/release/libf4kvs_ffi.so lib/
+COPY --from=tantivy-lib /opt/tantivy/lib/libtantivy_go.a lib/
+
+ENV CGO_ENABLED=1
+ENV CGO_LDFLAGS=-L/src/lib
+RUN go build -tags tantivy -o /out/agent ./agent
+RUN go build -tags tantivy -o /out/client ./client
+
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN mkdir -p lib
+COPY --from=go-build /out/agent /app/bin/agent
+COPY --from=f4kvs-lib /opt/f4kvs-ffi/target/ffi-release/release/libf4kvs_ffi.so lib/
+
+ENV LD_LIBRARY_PATH=/app/lib
+ENV RAG_LISTEN=:8080
+ENV RAG_LLM_PROVIDER=ollama
+ENV RAG_LLM_BASE_URL=http://host.docker.internal:11434
+ENV RAG_LLM_MODEL=qwen2.5:7b-instruct
+ENV RAG_EMBEDDING_MODEL=nomic-embed-text
+ENV RAG_DATA_DIR=/data
+ENV RAG_LEXICAL_ENGINE=f4kvs
+ENV RAG_F4KVS_LEXICAL_MODE=disk
+
+EXPOSE 8080
+
+FROM debian:bookworm-slim AS bake-prebuilt
+ARG CORPUS_NAME
+COPY prebuilt/${CORPUS_NAME}/ /data/
+
+FROM debian:bookworm-slim AS bake-ingest
+ARG CORPUS_NAME
+ARG CORPUS_TAG
+ARG CORPUS_SRC
+ARG DISABLE_EMBEDDINGS
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+RUN mkdir -p lib /data
+COPY --from=go-build /out/agent /app/bin/agent
+COPY --from=go-build /out/client /app/bin/client
+COPY --from=f4kvs-lib /opt/f4kvs-ffi/target/ffi-release/release/libf4kvs_ffi.so lib/
+COPY ${CORPUS_SRC}/ /src/corpus/
+
+ENV LD_LIBRARY_PATH=/app/lib
+ENV RAG_LISTEN=127.0.0.1:8080
+ENV RAG_DATA_DIR=/data
+ENV RAG_LEXICAL_ENGINE=f4kvs
+ENV RAG_F4KVS_LEXICAL_MODE=disk
+
+RUN if [ "${DISABLE_EMBEDDINGS}" = "true" ]; then export RAG_DISABLE_EMBEDDINGS=true; fi; \
+    TAG="${CORPUS_TAG:-$CORPUS_NAME}"; \
+    /app/bin/agent & \
+    AGENT_PID=$!; \
+    for i in $(seq 1 60); do \
+      curl -sf http://127.0.0.1:8080/stats >/dev/null && break; \
+      sleep 0.5; \
+    done; \
+    curl -sf http://127.0.0.1:8080/stats >/dev/null || (echo "agent not ready for ingest bake" >&2; exit 1); \
+    /app/bin/client -mode ingest-dir \
+      -dir /src/corpus \
+      -server http://127.0.0.1:8080 \
+      -corpus "$TAG" \
+      -reset-before-ingest \
+      -finalize=false; \
+    kill "$AGENT_PID"; \
+    wait "$AGENT_PID" 2>/dev/null || true; \
+    test -d /data/legal.f4kvs
+
+ARG BAKE_MODE=ingest
+FROM bake-${BAKE_MODE} AS baked
+
+FROM runtime AS corpus-runtime
+COPY --from=baked /data /seed
+COPY scripts/docker_entrypoint.sh /app/bin/entrypoint.sh
+RUN chmod +x /app/bin/entrypoint.sh
+
+ENTRYPOINT ["/app/bin/entrypoint.sh"]
+CMD ["/app/bin/agent"]

@@ -1,0 +1,16 @@
+# Build corpus images locally instead of pulling from GHCR.
+services:
+  rag-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.corpus
+      additional_contexts:
+        f4kvs: ${F4KVS_ROOT:?Set F4KVS_ROOT in .env to your local f4kvs-ffi checkout}
+        f4kvs-lexical: ${F4KVS_LEXICAL_ROOT:?Set F4KVS_LEXICAL_ROOT in .env to your local f4kvs-lexical checkout}
+      args:
+        CORPUS_NAME: ${CORPUS_NAME:-eval-public}
+        CORPUS_TAG: ${CORPUS_TAG:-}
+        CORPUS_SRC: ${CORPUS_SRC:-eval/fixtures/docs}
+        BAKE_MODE: ${BAKE_MODE:-ingest}
+        DISABLE_EMBEDDINGS: ${DISABLE_EMBEDDINGS:-true}
+    image: rag-agent:corpus-${CORPUS_NAME:-eval-public}
